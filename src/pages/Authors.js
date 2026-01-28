@@ -1,57 +1,62 @@
 import React, { useState, useEffect } from 'react';
 import { paperApi } from '../api/authApi';
 import { FaUser, FaSort, FaSearch } from 'react-icons/fa';
+import toast from 'react-hot-toast';
 
 const Authors = () => {
   const [authors, setAuthors] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [sortBy, setSortBy] = useState('papers');
+  const [filteredAuthors, setFilteredAuthors] = useState([]);
 
   useEffect(() => {
     fetchAuthors();
   }, [sortBy]);
 
+  useEffect(() => {
+    // Filter authors based on search term
+    if (searchTerm) {
+      const filtered = authors.filter(author =>
+        (author.name || author.author || '').toLowerCase().includes(searchTerm.toLowerCase())
+      );
+      setFilteredAuthors(filtered);
+    } else {
+      setFilteredAuthors(authors);
+    }
+  }, [searchTerm, authors]);
+
   const fetchAuthors = async () => {
     setLoading(true);
     try {
-      // Mock data - replace with actual API call
-      const mockAuthors = [
-        { name: 'Smith, John', papers: 45, citations: 1289, first_paper: 2015 },
-        { name: 'Johnson, Robert', papers: 38, citations: 987, first_paper: 2017 },
-        { name: 'Williams, Thomas', papers: 32, citations: 765, first_paper: 2016 },
-        { name: 'Brown, Michael', papers: 28, citations: 654, first_paper: 2018 },
-        { name: 'Davis, Sarah', papers: 25, citations: 543, first_paper: 2019 },
-        { name: 'Miller, David', papers: 22, citations: 432, first_paper: 2020 },
-        { name: 'Wilson, Jennifer', papers: 19, citations: 321, first_paper: 2017 },
-        { name: 'Moore, Richard', papers: 18, citations: 298, first_paper: 2018 },
-        { name: 'Taylor, Susan', papers: 16, citations: 265, first_paper: 2019 },
-        { name: 'Anderson, William', papers: 14, citations: 234, first_paper: 2020 },
-      ];
-
+      // Fetch from MySQL database
+      const data = await paperApi.getAuthorStats('mysql', 100);
+      
+      // Transform the data
+      let authorsList = data.authors || [];
+      
       // Sort the data
-      const sorted = [...mockAuthors].sort((a, b) => {
-        if (sortBy === 'papers') return b.papers - a.papers;
-        if (sortBy === 'citations') return b.citations - a.citations;
-        if (sortBy === 'name') return a.name.localeCompare(b.name);
+      authorsList = authorsList.sort((a, b) => {
+        const countA = a.paper_count || a.count || 0;
+        const countB = b.paper_count || b.count || 0;
+        const nameA = a.name || a.author || '';
+        const nameB = b.name || b.author || '';
+        
+        if (sortBy === 'papers') return countB - countA;
+        if (sortBy === 'name') return nameA.localeCompare(nameB);
         return 0;
       });
 
-      setAuthors(sorted);
+      setAuthors(authorsList);
+      setFilteredAuthors(authorsList);
       
-      // Uncomment for real API:
-      // const data = await paperApi.getAuthorStats();
-      // setAuthors(data);
     } catch (error) {
       console.error('Failed to fetch authors:', error);
+      toast.error('Failed to load authors');
     } finally {
       setLoading(false);
     }
   };
-
-  const filteredAuthors = authors.filter(author =>
-    author.name.toLowerCase().includes(searchTerm.toLowerCase())
-  );
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -60,7 +65,7 @@ const Authors = () => {
         <div className="mb-8">
           <h1 className="text-3xl font-bold text-gray-900 mb-2">Author Analytics</h1>
           <p className="text-gray-600">
-            Database insights: Top authors and their research contributions
+            Database insights: Top authors and their research contributions (MySQL)
           </p>
         </div>
 
@@ -94,7 +99,6 @@ const Authors = () => {
                 className="input-field w-40"
               >
                 <option value="papers">Most Papers</option>
-                <option value="citations">Most Citations</option>
                 <option value="name">Name A-Z</option>
               </select>
             </div>
@@ -109,6 +113,10 @@ const Authors = () => {
               <p className="mt-4 text-gray-600">Loading authors...</p>
             </div>
           </div>
+        ) : filteredAuthors.length === 0 ? (
+          <div className="text-center py-12">
+            <p className="text-gray-600 text-lg">No authors found</p>
+          </div>
         ) : (
           <div className="card overflow-hidden">
             <div className="overflow-x-auto">
@@ -116,25 +124,27 @@ const Authors = () => {
                 <thead className="bg-gray-50">
                   <tr>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Rank
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                       Author Name
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                       Papers Published
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Total Citations
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      First Paper
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Papers/Year
+                      Author ID
                     </th>
                   </tr>
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-200">
                   {filteredAuthors.map((author, index) => (
-                    <tr key={index} className="hover:bg-gray-50 transition-colors">
+                    <tr key={author.author_id || index} className="hover:bg-gray-50 transition-colors">
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="text-sm font-medium text-gray-900">
+                          #{index + 1}
+                        </div>
+                      </td>
                       <td className="px-6 py-4 whitespace-nowrap">
                         <div className="flex items-center">
                           <div className="flex-shrink-0 h-10 w-10 flex items-center justify-center bg-primary-100 rounded-full">
@@ -142,29 +152,19 @@ const Authors = () => {
                           </div>
                           <div className="ml-4">
                             <div className="text-sm font-medium text-gray-900">
-                              {author.name}
+                              {author.name || author.author || 'Unknown'}
                             </div>
                           </div>
                         </div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
                         <div className="text-sm text-gray-900 font-medium">
-                          {author.papers}
+                          {author.paper_count || author.count || 0}
                         </div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="text-sm text-gray-900">
-                          {author.citations.toLocaleString()}
-                        </div>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="text-sm text-gray-900">
-                          {author.first_paper}
-                        </div>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="text-sm text-gray-900">
-                          {(author.papers / (2024 - author.first_paper + 1)).toFixed(1)}
+                        <div className="text-sm text-gray-500">
+                          {author.author_id || 'N/A'}
                         </div>
                       </td>
                     </tr>
@@ -181,12 +181,18 @@ const Authors = () => {
             <h3 className="text-lg font-semibold mb-4">Database Query Info</h3>
             <div className="space-y-3">
               <div>
-                <p className="text-sm text-gray-500">Index Used</p>
-                <p className="text-sm font-mono">authors.name (multikey)</p>
+                <p className="text-sm text-gray-500">Query Type</p>
+                <p className="text-sm font-mono">JOIN + GROUP BY</p>
               </div>
               <div>
-                <p className="text-sm text-gray-500">Aggregation Pipeline</p>
-                <p className="text-sm">$unwind → $group → $sort</p>
+                <p className="text-sm text-gray-500">SQL Query</p>
+                <div className="bg-gray-50 p-2 rounded text-xs font-mono overflow-x-auto">
+                  SELECT a.name, COUNT(pa.paper_id) as paper_count
+                  FROM author a
+                  LEFT JOIN paper_author pa ON a.author_id = pa.author_id
+                  GROUP BY a.author_id
+                  ORDER BY paper_count DESC
+                </div>
               </div>
             </div>
           </div>
@@ -201,30 +207,33 @@ const Authors = () => {
               <div className="flex justify-between">
                 <span className="text-sm text-gray-600">Avg Papers/Author</span>
                 <span className="font-medium">
-                  {(authors.reduce((sum, a) => sum + a.papers, 0) / authors.length).toFixed(1)}
+                  {authors.length > 0 
+                    ? (authors.reduce((sum, a) => sum + (a.paper_count || a.count || 0), 0) / authors.length).toFixed(1)
+                    : 0
+                  }
                 </span>
               </div>
               <div className="flex justify-between">
                 <span className="text-sm text-gray-600">Most Prolific</span>
-                <span className="font-medium">{authors[0]?.name}</span>
+                <span className="font-medium text-sm">{authors[0]?.name || authors[0]?.author || 'N/A'}</span>
               </div>
             </div>
           </div>
 
           <div className="card">
-            <h3 className="text-lg font-semibold mb-4">Performance</h3>
+            <h3 className="text-lg font-semibold mb-4">Database Info</h3>
             <div className="space-y-2">
               <div className="flex justify-between">
-                <span className="text-sm text-gray-600">Query Time</span>
-                <span className="font-medium">~15ms</span>
+                <span className="text-sm text-gray-600">Database</span>
+                <span className="font-medium">MySQL</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-sm text-gray-600">Documents Scanned</span>
-                <span className="font-medium">12543</span>
+                <span className="text-sm text-gray-600">Table</span>
+                <span className="font-medium">author + paper_author</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-sm text-gray-600">Index Hits</span>
-                <span className="font-medium">100%</span>
+                <span className="text-sm text-gray-600">Index Used</span>
+                <span className="font-medium">PRIMARY KEY</span>
               </div>
             </div>
           </div>

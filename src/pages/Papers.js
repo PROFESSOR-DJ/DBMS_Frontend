@@ -3,6 +3,7 @@ import { paperApi } from '../api/authApi';
 import PaperCard from '../components/PaperCard';
 import SearchBar from '../components/SearchBar';
 import { FaFilter, FaSort } from 'react-icons/fa';
+import toast from 'react-hot-toast';
 
 const Papers = () => {
   const [papers, setPapers] = useState([]);
@@ -10,39 +11,38 @@ const Papers = () => {
   const [filters, setFilters] = useState({
     year: '',
     journal: '',
-    sort: 'recent',
+    author: '',
   });
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
+  const [total, setTotal] = useState(0);
+  const [searchQuery, setSearchQuery] = useState('');
 
   useEffect(() => {
-    fetchPapers();
+    // Check if there's a search query in URL
+    const urlParams = new URLSearchParams(window.location.search);
+    const q = urlParams.get('q');
+    if (q) {
+      setSearchQuery(q);
+      handleSearch(q);
+    } else {
+      fetchPapers();
+    }
   }, [page, filters]);
 
   const fetchPapers = async () => {
     setLoading(true);
     try {
-      // Mock data - replace with actual API call
-      const mockPapers = Array.from({ length: 12 }, (_, i) => ({
-        _id: i + 1,
-        title: `Research Paper on Database Management System ${i + 1}`,
-        authors: ['John Smith', 'Jane Doe', 'Robert Johnson'],
-        journal: ['Nature', 'Science', 'IEEE'][i % 3],
-        year: 2020 + (i % 5),
-        abstract: 'This paper discusses advanced database management systems and their applications in modern research data management...',
-        citation_count: Math.floor(Math.random() * 100),
-        doi: `10.1000/xyz${i}`,
-      }));
-
-      setPapers(mockPapers);
-      setTotalPages(5);
+      // Fetch from MySQL database
+      const data = await paperApi.getAllPapers(page, 50, 'mysql');
       
-      // Uncomment for real API:
-      // const data = await paperApi.searchPapers('', filters);
-      // setPapers(data.papers);
-      // setTotalPages(data.totalPages);
+      setPapers(data.papers || []);
+      setTotalPages(data.pagination?.pages || 1);
+      setTotal(data.pagination?.total || 0);
+      
     } catch (error) {
       console.error('Failed to fetch papers:', error);
+      toast.error('Failed to load papers');
     } finally {
       setLoading(false);
     }
@@ -50,12 +50,18 @@ const Papers = () => {
 
   const handleSearch = async (query) => {
     setLoading(true);
+    setSearchQuery(query);
     try {
-      const data = await paperApi.searchPapers(query, filters);
-      setPapers(data.papers);
+      const data = await paperApi.searchPapers(query, {
+        source: 'mysql',
+        ...filters
+      });
+      setPapers(data.papers || []);
+      setTotal(data.count || 0);
       setPage(1);
     } catch (error) {
       console.error('Search failed:', error);
+      toast.error('Search failed');
     } finally {
       setLoading(false);
     }
@@ -69,6 +75,16 @@ const Papers = () => {
     setPage(1);
   };
 
+  const clearFilters = () => {
+    setFilters({
+      year: '',
+      journal: '',
+      author: '',
+    });
+    setSearchQuery('');
+    setPage(1);
+  };
+
   return (
     <div className="min-h-screen bg-gray-50">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
@@ -76,7 +92,7 @@ const Papers = () => {
         <div className="mb-8">
           <h1 className="text-3xl font-bold text-gray-900 mb-2">Research Papers</h1>
           <p className="text-gray-600">
-            Browse and search through our comprehensive database of research papers
+            Browse and search through {total.toLocaleString()} research papers (MySQL Database)
           </p>
         </div>
 
@@ -90,49 +106,51 @@ const Papers = () => {
               <span className="text-sm font-medium">Filters:</span>
             </div>
             
-            <select
+            <input
+              type="number"
               value={filters.year}
               onChange={(e) => handleFilterChange('year', e.target.value)}
-              className="input-field w-40"
-            >
-              <option value="">All Years</option>
-              {[2024, 2023, 2022, 2021, 2020].map(year => (
-                <option key={year} value={year}>{year}</option>
-              ))}
-            </select>
+              placeholder="Year"
+              className="input-field w-32"
+            />
 
-            <select
+            <input
+              type="text"
               value={filters.journal}
               onChange={(e) => handleFilterChange('journal', e.target.value)}
+              placeholder="Journal name"
               className="input-field w-48"
-            >
-              <option value="">All Journals</option>
-              <option value="Nature">Nature</option>
-              <option value="Science">Science</option>
-              <option value="IEEE">IEEE</option>
-              <option value="Elsevier">Elsevier</option>
-            </select>
+            />
 
-            <div className="flex items-center ml-auto">
-              <FaSort className="mr-2 text-gray-500" />
-              <select
-                value={filters.sort}
-                onChange={(e) => handleFilterChange('sort', e.target.value)}
-                className="input-field w-40"
+            <input
+              type="text"
+              value={filters.author}
+              onChange={(e) => handleFilterChange('author', e.target.value)}
+              placeholder="Author name"
+              className="input-field w-48"
+            />
+
+            {(filters.year || filters.journal || filters.author || searchQuery) && (
+              <button
+                onClick={clearFilters}
+                className="btn-secondary"
               >
-                <option value="recent">Most Recent</option>
-                <option value="citations">Most Cited</option>
-                <option value="title">Title A-Z</option>
-              </select>
-            </div>
+                Clear Filters
+              </button>
+            )}
           </div>
         </div>
 
         {/* Results Count */}
-        <div className="mb-6">
+        <div className="mb-6 flex justify-between items-center">
           <p className="text-gray-600">
-            Showing <span className="font-medium">{papers.length}</span> papers
+            {searchQuery && <span>Search results for "<strong>{searchQuery}</strong>" - </span>}
+            Showing <span className="font-medium">{papers.length}</span> of{' '}
+            <span className="font-medium">{total.toLocaleString()}</span> papers
           </p>
+          <div className="flex items-center">
+            <span className="text-sm text-gray-600 mr-2">Page {page} of {totalPages}</span>
+          </div>
         </div>
 
         {/* Papers Grid */}
@@ -143,11 +161,18 @@ const Papers = () => {
               <p className="mt-4 text-gray-600">Loading papers...</p>
             </div>
           </div>
+        ) : papers.length === 0 ? (
+          <div className="text-center py-12">
+            <p className="text-gray-600 text-lg">No papers found</p>
+            <button onClick={clearFilters} className="mt-4 btn-primary">
+              Clear filters and show all papers
+            </button>
+          </div>
         ) : (
           <>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
               {papers.map(paper => (
-                <PaperCard key={paper._id} paper={paper} />
+                <PaperCard key={paper.paper_id} paper={paper} />
               ))}
             </div>
 
@@ -162,12 +187,20 @@ const Papers = () => {
                   Previous
                 </button>
                 
+                {/* Show page numbers */}
                 {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
-                  let pageNum = i + 1;
-                  if (page > 3) {
-                    pageNum = page - 3 + i;
+                  let pageNum;
+                  if (totalPages <= 5) {
+                    pageNum = i + 1;
+                  } else if (page <= 3) {
+                    pageNum = i + 1;
+                  } else if (page >= totalPages - 2) {
+                    pageNum = totalPages - 4 + i;
+                  } else {
+                    pageNum = page - 2 + i;
                   }
-                  if (pageNum > totalPages) return null;
+                  
+                  if (pageNum < 1 || pageNum > totalPages) return null;
                   
                   return (
                     <button
