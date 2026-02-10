@@ -26,7 +26,6 @@ api.interceptors.response.use(
   (response) => response,
   (error) => {
     if (error.response?.status === 401) {
-      // Token expired or invalid
       localStorage.removeItem('token');
       localStorage.removeItem('userEmail');
       window.location.href = '/login';
@@ -71,23 +70,62 @@ export const paperApi = {
   searchPapers: async (query = '', filters = {}) => {
     const params = new URLSearchParams();
     if (query) params.append('q', query);
+    
+    // Add all filter parameters
     Object.keys(filters).forEach(key => {
-      if (filters[key]) params.append(key, filters[key]);
+      if (filters[key]) {
+        params.append(key, filters[key]);
+      }
     });
     
     const response = await api.get(`/papers/search?${params.toString()}`);
     return response.data;
   },
 
-  getAllPapers: async (page = 1, limit = 50, source = 'mongodb') => {
+  getAllPapers: async (page = 1, limit = 20, source = 'mongodb', sortBy = 'recent') => {
     const response = await api.get('/papers', {
-      params: { page, limit, source }
+      params: { page, limit, source, sortBy }
     });
     return response.data;
   },
 
   getPaperById: async (id, source = 'mongodb') => {
     const response = await api.get(`/papers/${id}`, {
+      params: { source }
+    });
+    return response.data;
+  },
+
+  getFilterOptions: async (source = 'mongodb') => {
+    const response = await api.get('/papers/filters', {
+      params: { source }
+    });
+    return response.data;
+  },
+
+  getSuggestions: async (query, type = 'all', source = 'mongodb') => {
+    const response = await api.get('/papers/suggestions', {
+      params: { q: query, type, source }
+    });
+    return response.data;
+  },
+
+  getPapersByYear: async (year, source = 'mongodb') => {
+    const response = await api.get(`/papers/year/${year}`, {
+      params: { source }
+    });
+    return response.data;
+  },
+
+  getPapersByJournal: async (journal, source = 'mongodb') => {
+    const response = await api.get(`/papers/journal/${encodeURIComponent(journal)}`, {
+      params: { source }
+    });
+    return response.data;
+  },
+
+  getPapersByAuthor: async (author, source = 'mongodb') => {
+    const response = await api.get(`/papers/author/${encodeURIComponent(author)}`, {
       params: { source }
     });
     return response.data;
@@ -111,6 +149,44 @@ export const paperApi = {
     const response = await api.get('/stats/papers-per-year', {
       params: { source }
     });
+    return response.data;
+  },
+
+  // Advanced search with multiple parameters
+  advancedSearch: async (searchParams) => {
+    const params = new URLSearchParams();
+    
+    Object.keys(searchParams).forEach(key => {
+      if (searchParams[key] !== null && searchParams[key] !== undefined && searchParams[key] !== '') {
+        params.append(key, searchParams[key]);
+      }
+    });
+    
+    const response = await api.get(`/papers/search?${params.toString()}`);
+    return response.data;
+  },
+
+  // Create paper
+  createPaper: async (paperData) => {
+    const response = await api.post('/papers', paperData);
+    return response.data;
+  },
+
+  // Update paper
+  updatePaper: async (id, paperData) => {
+    const response = await api.put(`/papers/${id}`, paperData);
+    return response.data;
+  },
+
+  // Delete paper
+  deletePaper: async (id) => {
+    const response = await api.delete(`/papers/${id}`);
+    return response.data;
+  },
+
+  // Bulk operations
+  bulkCreatePapers: async (papers) => {
+    const response = await api.post('/papers/bulk', papers);
     return response.data;
   },
 };
