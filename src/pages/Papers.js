@@ -11,7 +11,8 @@ import {
   FaCalendarAlt,
   FaNewspaper,
   FaUser,
-  FaQuoteRight
+  FaQuoteRight,
+  FaDatabase
 } from 'react-icons/fa';
 import toast from 'react-hot-toast';
 
@@ -23,14 +24,13 @@ const Papers = () => {
   const [totalPages, setTotalPages] = useState(1);
   const [total, setTotal] = useState(0);
   
-  // Advanced filters
+  // Advanced filters (NO source field - backend decides automatically)
   const [filters, setFilters] = useState({
     yearFrom: '',
     yearTo: '',
     journal: '',
     author: '',
     minCitations: '',
-    source: 'mysql',
     sortBy: 'recent'
   });
 
@@ -39,18 +39,15 @@ const Papers = () => {
     year: true,
     journal: false,
     author: false,
-    citations: false,
-    source: false
+    citations: false
   });
 
   const [showFilters, setShowFilters] = useState(true);
   const [activeFiltersCount, setActiveFiltersCount] = useState(0);
 
-  // Available filter options (would normally come from API)
-  const [filterOptions, setFilterOptions] = useState({
-    journals: [],
-    years: Array.from({ length: 20 }, (_, i) => 2024 - i),
-    sources: ['MySQL', 'MongoDB']
+  // Available filter options
+  const [filterOptions] = useState({
+    years: Array.from({ length: 20 }, (_, i) => 2024 - i)
   });
 
   useEffect(() => {
@@ -67,7 +64,7 @@ const Papers = () => {
   useEffect(() => {
     // Count active filters
     const count = Object.entries(filters).filter(([key, value]) => 
-      value && key !== 'source' && key !== 'sortBy'
+      value && key !== 'sortBy'
     ).length;
     setActiveFiltersCount(count);
   }, [filters]);
@@ -75,7 +72,8 @@ const Papers = () => {
   const fetchPapers = async () => {
     setLoading(true);
     try {
-      const data = await paperApi.getAllPapers(page, 20, filters.source.toLowerCase());
+      // Backend automatically uses MongoDB for browsing (optimized)
+      const data = await paperApi.getAllPapers(page, 20, filters.sortBy);
       setPapers(data.papers || []);
       setTotalPages(data.pagination?.pages || 1);
       setTotal(data.pagination?.total || 0);
@@ -95,17 +93,19 @@ const Papers = () => {
 
     setLoading(true);
     try {
+      // Backend automatically uses MongoDB for text search (optimized)
       const searchFilters = {
-        source: filters.source.toLowerCase(),
         ...(filters.yearFrom && { yearFrom: filters.yearFrom }),
         ...(filters.yearTo && { yearTo: filters.yearTo }),
         ...(filters.journal && { journal: filters.journal }),
         ...(filters.author && { author: filters.author }),
+        ...(filters.minCitations && { minCitations: filters.minCitations }),
+        sortBy: filters.sortBy
       };
 
       const data = await paperApi.searchPapers(query, searchFilters);
       setPapers(data.papers || []);
-      setTotal(data.count || 0);
+      setTotal(data.total || 0);
       setPage(1);
     } catch (error) {
       console.error('Search failed:', error);
@@ -138,7 +138,6 @@ const Papers = () => {
       journal: '',
       author: '',
       minCitations: '',
-      source: 'mysql',
       sortBy: 'recent'
     });
     setSearchQuery('');
@@ -164,7 +163,15 @@ const Papers = () => {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
         {/* Header with Search */}
         <div className="mb-6">
-          <h1 className="text-2xl font-bold text-gray-900 mb-4">Search Research Papers</h1>
+          <div className="flex items-center justify-between mb-4">
+            <div>
+              <h1 className="text-2xl font-bold text-gray-900">Search Research Papers</h1>
+              <p className="text-sm text-gray-600 flex items-center mt-1">
+                <FaDatabase className="mr-1 text-green-600" size={12} />
+                Powered by MongoDB full-text search
+              </p>
+            </div>
+          </div>
           
           {/* Search Bar */}
           <div className="relative">
@@ -227,6 +234,17 @@ const Papers = () => {
                   Author: {filters.author}
                   <button
                     onClick={() => removeFilter('author')}
+                    className="ml-2 hover:text-primary-900"
+                  >
+                    <FaTimes size={12} />
+                  </button>
+                </span>
+              )}
+              {filters.minCitations && (
+                <span className="inline-flex items-center px-3 py-1 rounded-full text-sm bg-primary-100 text-primary-800">
+                  Min citations: {filters.minCitations}
+                  <button
+                    onClick={() => removeFilter('minCitations')}
                     className="ml-2 hover:text-primary-900"
                   >
                     <FaTimes size={12} />
@@ -444,35 +462,6 @@ const Papers = () => {
                         >
                           Apply
                         </button>
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Data Source */}
-                  <div className="p-4">
-                    <button
-                      onClick={() => toggleSection('source')}
-                      className="w-full flex items-center justify-between mb-3"
-                    >
-                      <span className="font-medium text-gray-900">Data Source</span>
-                      {expandedSections.source ? <FaChevronUp size={14} /> : <FaChevronDown size={14} />}
-                    </button>
-                    
-                    {expandedSections.source && (
-                      <div className="space-y-2">
-                        {filterOptions.sources.map(source => (
-                          <label key={source} className="flex items-center">
-                            <input
-                              type="radio"
-                              name="source"
-                              value={source}
-                              checked={filters.source.toLowerCase() === source.toLowerCase()}
-                              onChange={(e) => handleFilterChange('source', e.target.value)}
-                              className="mr-2"
-                            />
-                            <span className="text-sm">{source}</span>
-                          </label>
-                        ))}
                       </div>
                     )}
                   </div>

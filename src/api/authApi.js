@@ -62,11 +62,13 @@ export const authApi = {
 };
 
 export const paperApi = {
+  // Dashboard stats - HYBRID (SQL counts + MongoDB analytics)
   getDashboardStats: async () => {
     const response = await api.get('/stats/overview');
     return response.data;
   },
 
+  // Search uses MongoDB (optimized for full-text search)
   searchPapers: async (query = '', filters = {}) => {
     const params = new URLSearchParams();
     if (query) params.append('q', query);
@@ -82,77 +84,86 @@ export const paperApi = {
     return response.data;
   },
 
-  getAllPapers: async (page = 1, limit = 20, source = 'mongodb', sortBy = 'recent') => {
+  // Browse uses MongoDB (optimized for document retrieval)
+  getAllPapers: async (page = 1, limit = 20, sortBy = 'recent') => {
     const response = await api.get('/papers', {
-      params: { page, limit, source, sortBy }
+      params: { page, limit, sortBy }
     });
     return response.data;
   },
 
-  getPaperById: async (id, source = 'mongodb') => {
-    const response = await api.get(`/papers/${id}`, {
-      params: { source }
-    });
+  // Get by ID uses MongoDB with SQL enrichment
+  getPaperById: async (id) => {
+    const response = await api.get(`/papers/${id}`);
     return response.data;
   },
 
-  getFilterOptions: async (source = 'mongodb') => {
-    const response = await api.get('/papers/filters', {
-      params: { source }
-    });
+  // Filter options use MongoDB aggregation
+  getFilterOptions: async () => {
+    const response = await api.get('/papers/filters');
     return response.data;
   },
 
-  getSuggestions: async (query, type = 'all', source = 'mongodb') => {
+  // Suggestions use MongoDB regex search
+  getSuggestions: async (query, type = 'all') => {
     const response = await api.get('/papers/suggestions', {
-      params: { q: query, type, source }
+      params: { q: query, type }
     });
     return response.data;
   },
 
-  getPapersByYear: async (year, source = 'mongodb') => {
-    const response = await api.get(`/papers/year/${year}`, {
-      params: { source }
-    });
+  // Year/Journal queries use MongoDB indexes
+  getPapersByYear: async (year) => {
+    const response = await api.get(`/papers/year/${year}`);
     return response.data;
   },
 
-  getPapersByJournal: async (journal, source = 'mongodb') => {
-    const response = await api.get(`/papers/journal/${encodeURIComponent(journal)}`, {
-      params: { source }
-    });
+  getPapersByJournal: async (journal) => {
+    const response = await api.get(`/papers/journal/${encodeURIComponent(journal)}`);
     return response.data;
   },
 
-  getPapersByAuthor: async (author, source = 'mongodb') => {
-    const response = await api.get(`/papers/author/${encodeURIComponent(author)}`, {
-      params: { source }
-    });
+  // Author uses HYBRID (SQL relationships + MongoDB documents)
+  getPapersByAuthor: async (author) => {
+    const response = await api.get(`/papers/author/${encodeURIComponent(author)}`);
     return response.data;
   },
 
-  getAuthorStats: async (source = 'mongodb', limit = 50) => {
+  // Author stats use SQL (normalized relationships)
+  getAuthorStats: async (limit = 50) => {
     const response = await api.get('/stats/authors', {
-      params: { source, limit }
+      params: { limit }
     });
     return response.data;
   },
 
-  getJournalStats: async (source = 'mongodb', limit = 50) => {
+  // Journal stats use MongoDB aggregation
+  getJournalStats: async (limit = 50) => {
     const response = await api.get('/stats/journals', {
-      params: { source, limit }
+      params: { limit }
     });
     return response.data;
   },
   
-  getPapersPerYear: async (source = 'mongodb') => {
-    const response = await api.get('/stats/papers-per-year', {
-      params: { source }
-    });
+  // Year analytics use MongoDB
+  getPapersPerYear: async () => {
+    const response = await api.get('/stats/papers-per-year');
     return response.data;
   },
 
-  // Advanced search with multiple parameters
+  // Get database architecture info
+  getDatabaseInfo: async () => {
+    const response = await api.get('/stats/database-info');
+    return response.data;
+  },
+
+  // Get performance comparison
+  getQueryPerformance: async () => {
+    const response = await api.get('/stats/query-performance');
+    return response.data;
+  },
+
+  // Advanced search - MongoDB optimized
   advancedSearch: async (searchParams) => {
     const params = new URLSearchParams();
     
@@ -166,25 +177,25 @@ export const paperApi = {
     return response.data;
   },
 
-  // Create paper
+  // Create paper (writes to both databases)
   createPaper: async (paperData) => {
     const response = await api.post('/papers', paperData);
     return response.data;
   },
 
-  // Update paper
+  // Update paper (updates both databases)
   updatePaper: async (id, paperData) => {
     const response = await api.put(`/papers/${id}`, paperData);
     return response.data;
   },
 
-  // Delete paper
+  // Delete paper (deletes from both databases)
   deletePaper: async (id) => {
     const response = await api.delete(`/papers/${id}`);
     return response.data;
   },
 
-  // Bulk operations
+  // Bulk operations (MongoDB first, SQL sync)
   bulkCreatePapers: async (papers) => {
     const response = await api.post('/papers/bulk', papers);
     return response.data;
