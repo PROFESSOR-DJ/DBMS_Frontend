@@ -1,9 +1,9 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
-import { 
-  FaCalendar, 
-  FaUser, 
-  FaNewspaper, 
+import {
+  FaCalendar,
+  FaUser,
+  FaNewspaper,
   FaQuoteRight,
   FaExternalLinkAlt,
   FaBookmark,
@@ -11,9 +11,9 @@ import {
 } from 'react-icons/fa';
 
 const PaperCard = ({ paper }) => {
-  const paperId = paper._id || paper.paper_id;
+  const paperId = paper.paper_id || paper._id;
   const [isBookmarked, setIsBookmarked] = React.useState(false);
-  
+
   const toggleBookmark = (e) => {
     e.preventDefault();
     setIsBookmarked(!isBookmarked);
@@ -22,14 +22,18 @@ const PaperCard = ({ paper }) => {
   // Format authors for display
   const formatAuthors = (authors) => {
     if (!authors) return 'Unknown';
-    if (Array.isArray(authors)) {
-      if (authors.length === 0) return 'Unknown';
-      if (authors.length === 1) return authors[0];
-      if (authors.length === 2) return authors.join(' and ');
-      if (authors.length > 3) {
-        return `${authors.slice(0, 3).join(', ')} et al.`;
+
+    // Handle string input from MySQL GROUP_CONCAT
+    const authorList = typeof authors === 'string' ? authors.split(', ') : authors;
+
+    if (Array.isArray(authorList)) {
+      if (authorList.length === 0) return 'Unknown';
+      if (authorList.length === 1) return authorList[0];
+      if (authorList.length === 2) return authorList.join(' and ');
+      if (authorList.length > 3) {
+        return `${authorList.slice(0, 3).join(', ')} et al.`;
       }
-      return authors.slice(0, -1).join(', ') + ' and ' + authors[authors.length - 1];
+      return authorList.slice(0, -1).join(', ') + ' and ' + authorList[authorList.length - 1];
     }
     return authors;
   };
@@ -51,7 +55,7 @@ const PaperCard = ({ paper }) => {
           {isBookmarked ? <FaBookmark size={18} /> : <FaRegBookmark size={18} />}
         </button>
       </div>
-      
+
       {/* Authors */}
       {paper.authors && (
         <div className="mb-2">
@@ -69,7 +73,7 @@ const PaperCard = ({ paper }) => {
             <span className="truncate">{paper.journal}</span>
           </div>
         )}
-        
+
         {paper.year && (
           <div className="flex items-center">
             <FaCalendar className="mr-1.5 flex-shrink-0 text-gray-500" size={14} />
@@ -84,7 +88,7 @@ const PaperCard = ({ paper }) => {
           </div>
         )}
       </div>
-      
+
       {/* Abstract Preview */}
       {paper.abstract && (
         <p className="text-sm text-gray-600 line-clamp-2 mb-3 leading-relaxed">
@@ -119,7 +123,7 @@ const PaperCard = ({ paper }) => {
         >
           View details
         </Link>
-        
+
         {paper.doi && (
           <a
             href={`https://doi.org/${paper.doi}`}

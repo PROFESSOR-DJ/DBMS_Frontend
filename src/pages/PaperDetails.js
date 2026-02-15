@@ -1,11 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { paperApi } from '../api/authApi';
-import { 
-  FaCalendar, 
-  FaUser, 
-  FaNewspaper, 
-  FaLink, 
+import {
+  FaCalendar,
+  FaUser,
+  FaNewspaper,
+  FaLink,
   FaArrowLeft,
   FaQuoteRight,
   FaTag
@@ -58,16 +58,30 @@ const PaperDetails = () => {
 
       setPaper(mockPaper);
       setRelatedPapers(mockRelated);
-      
+
+      setRelatedPapers(mockRelated);
+
       // Uncomment for real API:
-      // const data = await paperApi.getPaperById(id);
-      // setPaper(data);
+      const data = await paperApi.getPaperById(id);
+      if (data) {
+        setPaper(data);
+        // If you have backend for related papers, fetch here
+      }
       // Fetch related papers...
     } catch (error) {
       console.error('Failed to fetch paper details:', error);
+      // Fallback or error handling
     } finally {
       setLoading(false);
     }
+  };
+
+  // Helper to ensure authors is an array
+  const getAuthorsArray = (authors) => {
+    if (!authors) return [];
+    if (Array.isArray(authors)) return authors;
+    if (typeof authors === 'string') return authors.split(', ');
+    return [];
   };
 
   if (loading) {
@@ -112,7 +126,7 @@ const PaperDetails = () => {
         {/* Paper Header */}
         <div className="card mb-8">
           <h1 className="text-3xl font-bold text-gray-900 mb-4">{paper.title}</h1>
-          
+
           <div className="flex flex-wrap gap-6 mb-6">
             <div className="flex items-center text-gray-600">
               <FaCalendar className="mr-2" />
@@ -144,7 +158,7 @@ const PaperDetails = () => {
               Authors
             </h3>
             <div className="flex flex-wrap gap-2">
-              {paper.authors.map((author, index) => (
+              {getAuthorsArray(paper.authors).map((author, index) => (
                 <span
                   key={index}
                   className="px-3 py-1 bg-gray-100 text-gray-700 rounded-full text-sm"
