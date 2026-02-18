@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { paperApi } from '../api/authApi';
 import PaperCard from '../components/PaperCard';
-import { 
-  FaFilter, 
-  FaSort, 
+import {
+  FaFilter,
+  FaSort,
   FaSearch,
   FaTimes,
   FaChevronDown,
@@ -12,18 +13,22 @@ import {
   FaNewspaper,
   FaUser,
   FaQuoteRight,
-  FaDatabase
+  FaDatabase,
+  FaPlus,
+  FaEdit,
+  FaTrash
 } from 'react-icons/fa';
 import toast from 'react-hot-toast';
 
 const Papers = () => {
+  const navigate = useNavigate();
   const [papers, setPapers] = useState([]);
   const [loading, setLoading] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [total, setTotal] = useState(0);
-  
+
   // Advanced filters (NO source field - backend decides automatically)
   const [filters, setFilters] = useState({
     yearFrom: '',
@@ -63,7 +68,7 @@ const Papers = () => {
 
   useEffect(() => {
     // Count active filters
-    const count = Object.entries(filters).filter(([key, value]) => 
+    const count = Object.entries(filters).filter(([key, value]) =>
       value && key !== 'sortBy'
     ).length;
     setActiveFiltersCount(count);
@@ -158,6 +163,28 @@ const Papers = () => {
     }));
   };
 
+  // CRUD Handlers
+  const handleAddNew = () => {
+    navigate('/papers/new');
+  };
+
+  const handleEdit = (paper) => {
+    navigate(`/papers/edit/${paper.paper_id || paper._id}`);
+  };
+
+  const handleDelete = async (id) => {
+    if (window.confirm('Are you sure you want to delete this paper?')) {
+      try {
+        await paperApi.deletePaper(id);
+        toast.success('Paper deleted successfully');
+        fetchPapers(); // Refresh list
+      } catch (error) {
+        console.error('Delete failed:', error);
+        toast.error('Failed to delete paper');
+      }
+    }
+  };
+
   return (
     <div className="min-h-screen bg-gray-50">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
@@ -171,8 +198,14 @@ const Papers = () => {
                 Powered by MongoDB full-text search
               </p>
             </div>
+            <button
+              onClick={handleAddNew}
+              className="bg-green-600 text-white px-4 py-2 rounded-lg flex items-center gap-2 hover:bg-green-700 transition-colors shadow-sm"
+            >
+              <FaPlus /> Add Paper
+            </button>
           </div>
-          
+
           {/* Search Bar */}
           <div className="relative">
             <input
@@ -281,7 +314,7 @@ const Papers = () => {
               )}
             </button>
           </div>
-          
+
           <div className="flex items-center gap-2">
             <FaSort className="text-gray-500" />
             <select
@@ -330,7 +363,7 @@ const Papers = () => {
                       </span>
                       {expandedSections.year ? <FaChevronUp size={14} /> : <FaChevronDown size={14} />}
                     </button>
-                    
+
                     {expandedSections.year && (
                       <div className="space-y-3">
                         <div>
@@ -381,7 +414,7 @@ const Papers = () => {
                       </span>
                       {expandedSections.journal ? <FaChevronUp size={14} /> : <FaChevronDown size={14} />}
                     </button>
-                    
+
                     {expandedSections.journal && (
                       <div className="space-y-2">
                         <input
@@ -413,7 +446,7 @@ const Papers = () => {
                       </span>
                       {expandedSections.author ? <FaChevronUp size={14} /> : <FaChevronDown size={14} />}
                     </button>
-                    
+
                     {expandedSections.author && (
                       <div className="space-y-2">
                         <input
@@ -445,7 +478,7 @@ const Papers = () => {
                       </span>
                       {expandedSections.citations ? <FaChevronUp size={14} /> : <FaChevronDown size={14} />}
                     </button>
-                    
+
                     {expandedSections.citations && (
                       <div className="space-y-2">
                         <input
@@ -491,8 +524,25 @@ const Papers = () => {
               <>
                 <div className="space-y-4">
                   {papers.map(paper => (
-                    <div key={paper.paper_id || paper._id} className="bg-white rounded-lg shadow-sm border border-gray-200 hover:shadow-md transition-shadow">
+                    <div key={paper.paper_id || paper._id} className="bg-white rounded-lg shadow-sm border border-gray-200 hover:shadow-md transition-shadow relative group">
                       <PaperCard paper={paper} />
+                      {/* CRUD Actions */}
+                      <div className="absolute top-4 right-4 flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <button
+                          onClick={(e) => { e.preventDefault(); handleEdit(paper); }}
+                          className="p-2 bg-blue-100 text-blue-600 rounded-full hover:bg-blue-200"
+                          title="Edit"
+                        >
+                          <FaEdit size={14} />
+                        </button>
+                        <button
+                          onClick={(e) => { e.preventDefault(); handleDelete(paper.paper_id || paper._id); }}
+                          className="p-2 bg-red-100 text-red-600 rounded-full hover:bg-red-200"
+                          title="Delete"
+                        >
+                          <FaTrash size={14} />
+                        </button>
+                      </div>
                     </div>
                   ))}
                 </div>
@@ -507,7 +557,7 @@ const Papers = () => {
                     >
                       Previous
                     </button>
-                    
+
                     {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
                       let pageNum;
                       if (totalPages <= 5) {
@@ -519,24 +569,23 @@ const Papers = () => {
                       } else {
                         pageNum = page - 2 + i;
                       }
-                      
+
                       if (pageNum < 1 || pageNum > totalPages) return null;
-                      
+
                       return (
                         <button
                           key={pageNum}
                           onClick={() => setPage(pageNum)}
-                          className={`px-4 py-2 rounded-lg ${
-                            page === pageNum
-                              ? 'bg-primary-600 text-white'
-                              : 'border border-gray-300 hover:bg-gray-50'
-                          }`}
+                          className={`px-4 py-2 rounded-lg ${page === pageNum
+                            ? 'bg-primary-600 text-white'
+                            : 'border border-gray-300 hover:bg-gray-50'
+                            }`}
                         >
                           {pageNum}
                         </button>
                       );
                     })}
-                    
+
                     <button
                       onClick={() => setPage(p => Math.min(totalPages, p + 1))}
                       disabled={page === totalPages}

@@ -11,14 +11,19 @@ import ForgotPassword from './pages/ForgotPassword';
 import Dashboard from './pages/Dashboard';
 import Papers from './pages/Papers';
 import PaperDetails from './pages/PaperDetails';
+
+import AddPaper from './pages/AddPaper';
+import EditPaper from './pages/EditPaper';
 import Authors from './pages/Authors';
+import AddAuthor from './pages/AddAuthor';
+import EditAuthor from './pages/EditAuthor';
 import Journals from './pages/Journals';
 import Profile from './pages/Profile';
 
 // Protected Route Component
 const ProtectedRoute = ({ children }) => {
   const { user, loading } = useAuth();
-  
+
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
@@ -29,18 +34,18 @@ const ProtectedRoute = ({ children }) => {
       </div>
     );
   }
-  
+
   if (!user) {
     return <Navigate to="/login" />;
   }
-  
+
   return children;
 };
 
 // Public Only Route Component
 const PublicOnlyRoute = ({ children }) => {
   const { user, loading } = useAuth();
-  
+
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
@@ -51,17 +56,17 @@ const PublicOnlyRoute = ({ children }) => {
       </div>
     );
   }
-  
+
   if (user) {
     return <Navigate to="/dashboard" />;
   }
-  
+
   return children;
 };
 
 const AppContent = () => {
   const { user } = useAuth();
-  
+
   return (
     <>
       {user && <Navbar />}
@@ -82,7 +87,7 @@ const AppContent = () => {
             <ForgotPassword />
           </PublicOnlyRoute>
         } />
-        
+
         {/* Protected Routes */}
         <Route path="/dashboard" element={
           <ProtectedRoute>
@@ -92,6 +97,16 @@ const AppContent = () => {
         <Route path="/papers" element={
           <ProtectedRoute>
             <Papers />
+          </ProtectedRoute>
+        } />
+        <Route path="/papers/new" element={
+          <ProtectedRoute>
+            <AddPaper />
+          </ProtectedRoute>
+        } />
+        <Route path="/papers/edit/:id" element={
+          <ProtectedRoute>
+            <EditPaper />
           </ProtectedRoute>
         } />
         <Route path="/papers/:id" element={
@@ -104,6 +119,16 @@ const AppContent = () => {
             <Authors />
           </ProtectedRoute>
         } />
+        <Route path="/authors/new" element={
+          <ProtectedRoute>
+            <AddAuthor />
+          </ProtectedRoute>
+        } />
+        <Route path="/authors/edit/:id" element={
+          <ProtectedRoute>
+            <EditAuthor />
+          </ProtectedRoute>
+        } />
         <Route path="/journals" element={
           <ProtectedRoute>
             <Journals />
@@ -114,10 +139,10 @@ const AppContent = () => {
             <Profile />
           </ProtectedRoute>
         } />
-        
+
         {/* Default Route */}
         <Route path="/" element={<Navigate to="/dashboard" />} />
-        
+
         {/* Catch-all Route */}
         <Route path="*" element={<Navigate to="/dashboard" />} />
       </Routes>
@@ -129,7 +154,7 @@ function App() {
   return (
     <Router>
       <AuthProvider>
-        <Toaster 
+        <Toaster
           position="top-right"
           toastOptions={{
             duration: 4000,

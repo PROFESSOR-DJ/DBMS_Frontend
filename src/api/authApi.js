@@ -62,29 +62,24 @@ export const authApi = {
 };
 
 export const paperApi = {
-  // Dashboard stats - HYBRID (SQL counts + MongoDB analytics)
+  // Dashboard stats
   getDashboardStats: async () => {
     const response = await api.get('/stats/overview');
     return response.data;
   },
 
-  // Search uses MongoDB (optimized for full-text search)
   searchPapers: async (query = '', filters = {}) => {
     const params = new URLSearchParams();
     if (query) params.append('q', query);
-    
-    // Add all filter parameters
     Object.keys(filters).forEach(key => {
       if (filters[key]) {
         params.append(key, filters[key]);
       }
     });
-    
     const response = await api.get(`/papers/search?${params.toString()}`);
     return response.data;
   },
 
-  // Browse uses MongoDB (optimized for document retrieval)
   getAllPapers: async (page = 1, limit = 20, sortBy = 'recent') => {
     const response = await api.get('/papers', {
       params: { page, limit, sortBy }
@@ -92,19 +87,31 @@ export const paperApi = {
     return response.data;
   },
 
-  // Get by ID uses MongoDB with SQL enrichment
   getPaperById: async (id) => {
     const response = await api.get(`/papers/${id}`);
     return response.data;
   },
 
-  // Filter options use MongoDB aggregation
+  createPaper: async (paperData) => {
+    const response = await api.post('/papers', paperData);
+    return response.data;
+  },
+
+  updatePaper: async (id, paperData) => {
+    const response = await api.put(`/papers/${id}`, paperData);
+    return response.data;
+  },
+
+  deletePaper: async (id) => {
+    const response = await api.delete(`/papers/${id}`);
+    return response.data;
+  },
+
   getFilterOptions: async () => {
     const response = await api.get('/papers/filters');
     return response.data;
   },
 
-  // Suggestions use MongoDB regex search
   getSuggestions: async (query, type = 'all') => {
     const response = await api.get('/papers/suggestions', {
       params: { q: query, type }
@@ -112,7 +119,6 @@ export const paperApi = {
     return response.data;
   },
 
-  // Year/Journal queries use MongoDB indexes
   getPapersByYear: async (year) => {
     const response = await api.get(`/papers/year/${year}`);
     return response.data;
@@ -123,13 +129,12 @@ export const paperApi = {
     return response.data;
   },
 
-  // Author uses HYBRID (SQL relationships + MongoDB documents)
   getPapersByAuthor: async (author) => {
     const response = await api.get(`/papers/author/${encodeURIComponent(author)}`);
     return response.data;
   },
 
-  // Author stats use SQL (normalized relationships)
+  // Author stats use SQL
   getAuthorStats: async (limit = 50) => {
     const response = await api.get('/stats/authors', {
       params: { limit }
@@ -137,68 +142,66 @@ export const paperApi = {
     return response.data;
   },
 
-  // Journal stats use MongoDB aggregation
-  getJournalStats: async (limit = 50) => {
-    const response = await api.get('/stats/journals', {
-      params: { limit }
-    });
-    return response.data;
-  },
-  
-  // Year analytics use MongoDB
-  getPapersPerYear: async () => {
-    const response = await api.get('/stats/papers-per-year');
-    return response.data;
-  },
-
-  // Get database architecture info
-  getDatabaseInfo: async () => {
-    const response = await api.get('/stats/database-info');
-    return response.data;
-  },
-
-  // Get performance comparison
-  getQueryPerformance: async () => {
-    const response = await api.get('/stats/query-performance');
-    return response.data;
-  },
-
-  // Advanced search - MongoDB optimized
   advancedSearch: async (searchParams) => {
     const params = new URLSearchParams();
-    
     Object.keys(searchParams).forEach(key => {
       if (searchParams[key] !== null && searchParams[key] !== undefined && searchParams[key] !== '') {
         params.append(key, searchParams[key]);
       }
     });
-    
     const response = await api.get(`/papers/search?${params.toString()}`);
     return response.data;
   },
 
-  // Create paper (writes to both databases)
-  createPaper: async (paperData) => {
-    const response = await api.post('/papers', paperData);
-    return response.data;
-  },
-
-  // Update paper (updates both databases)
-  updatePaper: async (id, paperData) => {
-    const response = await api.put(`/papers/${id}`, paperData);
-    return response.data;
-  },
-
-  // Delete paper (deletes from both databases)
-  deletePaper: async (id) => {
-    const response = await api.delete(`/papers/${id}`);
-    return response.data;
-  },
-
-  // Bulk operations (MongoDB first, SQL sync)
   bulkCreatePapers: async (papers) => {
     const response = await api.post('/papers/bulk', papers);
     return response.data;
+  },
+};
+
+export const authorApi = {
+  getAllAuthors: async (params = {}) => {
+    const response = await api.get('/authors', { params });
+    return response.data;
+  },
+  searchAuthors: async (query) => {
+    const response = await api.get('/authors/search', { params: { q: query } });
+    return response.data;
+  },
+  createAuthor: async (authorData) => {
+    const response = await api.post('/authors', authorData);
+    return response.data;
+  },
+  updateAuthor: async (id, updates) => {
+    const response = await api.put(`/authors/${id}`, updates);
+    return response.data;
+  },
+  deleteAuthor: async (id) => {
+    const response = await api.delete(`/authors/${id}`);
+    return response.data;
+  },
+  getPapersByAuthor: async (authorName) => {
+    const response = await api.get(`/papers/author/${authorName}`);
+    return response.data;
+  },
+};
+
+export const statsApi = {
+  getOverview: async () => {
+    const response = await api.get('/stats/overview');
+    return response.data;
+  },
+  getTopAuthors: async () => {
+    const response = await api.get('/stats/overview');
+    return response.data.analytics.top_authors;
+  },
+  getTopJournals: async () => {
+    const response = await api.get('/stats/overview');
+    return response.data.analytics.top_journals;
+  },
+  getPapersPerYear: async () => {
+    const response = await api.get('/stats/year');
+    return response.data.papers_per_year;
   },
 };
 

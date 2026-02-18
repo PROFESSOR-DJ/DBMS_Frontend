@@ -1,61 +1,79 @@
-import React, { useState, useEffect } from 'react';
-import { paperApi } from '../api/authApi';
-import { FaUser, FaSort, FaSearch, FaDatabase } from 'react-icons/fa';
+import React, { useState, useEffect, useMemo } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { paperApi, authorApi } from '../api/authApi';
+import { FaUser, FaSort, FaSearch, FaDatabase, FaEdit, FaTrash, FaPlus } from 'react-icons/fa';
 import toast from 'react-hot-toast';
 
 const Authors = () => {
+  const navigate = useNavigate();
   const [authors, setAuthors] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [sortBy, setSortBy] = useState('papers');
-  const [filteredAuthors, setFilteredAuthors] = useState([]);
 
-  useEffect(() => {
-    fetchAuthors();
-  }, [sortBy]);
-
-  useEffect(() => {
-    // Filter authors based on search term
-    if (searchTerm) {
-      const filtered = authors.filter(author =>
-        (author.name || author.author || '').toLowerCase().includes(searchTerm.toLowerCase())
-      );
-      setFilteredAuthors(filtered);
-    } else {
-      setFilteredAuthors(authors);
-    }
-  }, [searchTerm, authors]);
-
+  // Fetch data (Top 100 OR Search Results)
   const fetchAuthors = async () => {
     setLoading(true);
     try {
-      // Backend automatically uses MySQL for author relationships (OPTIMIZED)
-      const data = await paperApi.getAuthorStats(100);
-      
-      // Transform the data
-      let authorsList = data.authors || [];
-      
-      // Sort the data
-      authorsList = authorsList.sort((a, b) => {
-        const countA = a.paper_count || a.count || 0;
-        const countB = b.paper_count || b.count || 0;
-        const nameA = a.name || a.author || '';
-        const nameB = b.name || b.author || '';
-        
-        if (sortBy === 'papers') return countB - countA;
-        if (sortBy === 'name') return nameA.localeCompare(nameB);
-        return 0;
-      });
-
-      setAuthors(authorsList);
-      setFilteredAuthors(authorsList);
-      
+      let data;
+      if (searchTerm.trim()) {
+        // Server-side search
+        data = await authorApi.searchAuthors(searchTerm);
+      } else {
+        // Default: Top 100 authors
+        data = await paperApi.getAuthorStats(100);
+      }
+      setAuthors(data.authors || []);
     } catch (error) {
       console.error('Failed to fetch authors:', error);
       toast.error('Failed to load authors');
     } finally {
       setLoading(false);
     }
+  };
+
+  // Debounced Search Effect
+  useEffect(() => {
+    const delayDebounce = setTimeout(() => {
+      fetchAuthors();
+    }, 500);
+
+    return () => clearTimeout(delayDebounce);
+  }, [searchTerm]);
+
+  // Client-side Sort (Derived State)
+  const sortedAuthors = useMemo(() => {
+    return [...authors].sort((a, b) => {
+      const countA = a.paper_count || a.count || 0;
+      const countB = b.paper_count || b.count || 0;
+      const nameA = a.name || a.author_name || a.author || '';
+      const nameB = b.name || b.author_name || b.author || '';
+
+      if (sortBy === 'papers') return countB - countA;
+      if (sortBy === 'name') return nameA.localeCompare(nameB);
+      return 0;
+    });
+  }, [authors, sortBy]);
+
+  const handleDelete = async (id) => {
+    if (window.confirm('Are you sure you want to delete this author?')) {
+      try {
+        await authorApi.deleteAuthor(id);
+        toast.success('Author deleted');
+        fetchAuthors(); // Refresh current view
+      } catch (error) {
+        console.error('Delete author failed', error);
+        toast.error('Failed to delete author (check if papers exist)');
+      }
+    }
+  };
+
+  const handleEdit = (author) => {
+    navigate(`/authors/edit/${author.author_id}`);
+  };
+
+  const handleCreate = () => {
+    navigate('/authors/new');
   };
 
   return (
@@ -68,6 +86,9 @@ const Authors = () => {
             <FaDatabase className="mr-2 text-blue-600" />
             Database insights: Top authors and their research contributions (MySQL)
           </p>
+          <button onClick={handleCreate} className="mt-4 bg-green-600 text-white px-4 py-2 rounded flex items-center gap-2 hover:bg-green-700">
+            <FaPlus /> Add Author
+          </button>
         </div>
 
         {/* Search and Sort */}
@@ -80,8 +101,8 @@ const Authors = () => {
               type="text"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              placeholder="Search authors by name..."
-              className="input-field pl-10"
+              placeholder="Search authors in database..."
+              className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent text-lg"
             />
           </div>
 
@@ -89,7 +110,7 @@ const Authors = () => {
             <div className="flex items-center">
               <FaUser className="mr-2 text-gray-500" />
               <span className="text-sm font-medium">
-                Showing {filteredAuthors.length} authors
+                Showing {sortedAuthors.length} authors {searchTerm && '(Search Results)'}
               </span>
             </div>
             <div className="flex items-center">
@@ -97,7 +118,7 @@ const Authors = () => {
               <select
                 value={sortBy}
                 onChange={(e) => setSortBy(e.target.value)}
-                className="input-field w-40"
+                className="border border-gray-300 rounded-md px-3 py-2 text-sm focus:ring-2 focus:ring-primary-500"
               >
                 <option value="papers">Most Papers</option>
                 <option value="name">Name A-Z</option>
@@ -114,12 +135,20 @@ const Authors = () => {
               <p className="mt-4 text-gray-600">Loading authors...</p>
             </div>
           </div>
-        ) : filteredAuthors.length === 0 ? (
-          <div className="text-center py-12">
-            <p className="text-gray-600 text-lg">No authors found</p>
+        ) : sortedAuthors.length === 0 ? (
+          <div className="text-center py-12 bg-white rounded-lg shadow-sm border border-gray-200">
+            <p className="text-gray-600 text-lg">No authors found matching "{searchTerm}"</p>
+            {searchTerm && (
+              <button
+                onClick={() => setSearchTerm('')}
+                className="mt-2 text-primary-600 hover:text-primary-800 font-medium"
+              >
+                Clear search
+              </button>
+            )}
           </div>
         ) : (
-          <div className="card overflow-hidden mb-8">
+          <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden mb-8">
             <div className="overflow-x-auto">
               <table className="min-w-full divide-y divide-gray-200">
                 <thead className="bg-gray-50">
@@ -136,10 +165,13 @@ const Authors = () => {
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                       Author ID
                     </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Actions
+                    </th>
                   </tr>
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-200">
-                  {filteredAuthors.map((author, index) => (
+                  {sortedAuthors.map((author, index) => (
                     <tr key={author.author_id || index} className="hover:bg-gray-50 transition-colors">
                       <td className="px-6 py-4 whitespace-nowrap">
                         <div className="text-sm font-medium text-gray-900">
@@ -153,7 +185,7 @@ const Authors = () => {
                           </div>
                           <div className="ml-4">
                             <div className="text-sm font-medium text-gray-900">
-                              {author.name || author.author || 'Unknown'}
+                              {author.name || author.author_name || author.author || 'Unknown'}
                             </div>
                           </div>
                         </div>
@@ -168,6 +200,14 @@ const Authors = () => {
                           {author.author_id || 'N/A'}
                         </div>
                       </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                        <button onClick={() => handleEdit(author)} className="text-blue-600 hover:text-blue-900 mr-3">
+                          <FaEdit />
+                        </button>
+                        <button onClick={() => handleDelete(author.author_id)} className="text-red-600 hover:text-red-900">
+                          <FaTrash />
+                        </button>
+                      </td>
                     </tr>
                   ))}
                 </tbody>
@@ -178,85 +218,31 @@ const Authors = () => {
 
         {/* Analytics Summary */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mt-8">
-          <div className="card bg-gradient-to-br from-blue-50 to-white border-blue-200">
+          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
             <h3 className="text-lg font-semibold mb-4 flex items-center">
               <FaDatabase className="mr-2 text-blue-600" />
               Database Query Info
             </h3>
             <div className="space-y-3">
               <div>
-                <p className="text-sm text-gray-500">Database Used</p>
-                <p className="text-sm font-medium text-blue-600">MySQL (Optimized)</p>
-              </div>
-              <div>
-                <p className="text-sm text-gray-500">Query Type</p>
-                <p className="text-sm font-mono">LEFT JOIN + GROUP BY</p>
-              </div>
-              <div>
-                <p className="text-sm text-gray-500">Optimization</p>
-                <p className="text-sm">Heuristic: GROUP BY before JOIN</p>
+                <p className="text-sm text-gray-500">Query Mode</p>
+                <p className="text-sm font-medium text-blue-600">
+                  {searchTerm ? 'Server-Side Search (Indexed)' : 'Top Authors Aggregation'}
+                </p>
               </div>
               <div>
                 <p className="text-sm text-gray-500 mb-1">SQL Query</p>
                 <div className="bg-gray-50 p-2 rounded text-xs font-mono overflow-x-auto">
-                  {`SELECT a.name, COUNT(pa.paper_id) as paper_count
-FROM author a
-LEFT JOIN paper_author pa ON a.author_id = pa.author_id
-GROUP BY a.author_id
-ORDER BY paper_count DESC`}
+                  {searchTerm ?
+                    `SELECT a.*, COUNT(pa.paper_id) ... WHERE name LIKE %${searchTerm}%` :
+                    `SELECT a.name, COUNT(pa.paper_id) ... ORDER BY count DESC LIMIT 100`
+                  }
                 </div>
               </div>
             </div>
           </div>
 
-          <div className="card">
-            <h3 className="text-lg font-semibold mb-4">Author Statistics</h3>
-            <div className="space-y-2">
-              <div className="flex justify-between">
-                <span className="text-sm text-gray-600">Total Unique Authors</span>
-                <span className="font-medium">{authors.length}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-sm text-gray-600">Avg Papers/Author</span>
-                <span className="font-medium">
-                  {authors.length > 0 
-                    ? (authors.reduce((sum, a) => sum + (a.paper_count || a.count || 0), 0) / authors.length).toFixed(1)
-                    : 0
-                  }
-                </span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-sm text-gray-600">Most Prolific</span>
-                <span className="font-medium text-sm truncate max-w-[150px]">
-                  {authors[0]?.name || authors[0]?.author || 'N/A'}
-                </span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-sm text-gray-600">Top Author Papers</span>
-                <span className="font-medium">
-                  {authors[0]?.paper_count || authors[0]?.count || 0}
-                </span>
-              </div>
-            </div>
-          </div>
-
-          <div className="card">
-            <h3 className="text-lg font-semibold mb-4">Why MySQL?</h3>
-            <div className="space-y-3">
-              <div className="p-3 bg-blue-50 rounded-lg">
-                <p className="text-sm font-medium text-blue-900 mb-1">Normalized Schema</p>
-                <p className="text-xs text-blue-700">Many-to-many relationships through paper_author table</p>
-              </div>
-              <div className="p-3 bg-green-50 rounded-lg">
-                <p className="text-sm font-medium text-green-900 mb-1">Referential Integrity</p>
-                <p className="text-xs text-green-700">Foreign keys ensure data consistency</p>
-              </div>
-              <div className="p-3 bg-purple-50 rounded-lg">
-                <p className="text-sm font-medium text-purple-900 mb-1">Query Optimization</p>
-                <p className="text-xs text-purple-700">JOIN operations optimized with indexes</p>
-              </div>
-            </div>
-          </div>
+          {/* ... Other cards can remain static or basic ... */}
         </div>
       </div>
     </div>

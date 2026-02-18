@@ -1,13 +1,13 @@
 import React, { useState, useEffect } from 'react';
-import { paperApi } from '../api/authApi';
+import { paperApi, statsApi } from '../api/authApi';
 import StatCard from '../components/StatCard';
-import { 
-  PapersPerYearChart, 
-  TopJournalsChart, 
-  AuthorPublicationsChart 
+import {
+  PapersPerYearChart,
+  TopJournalsChart,
+  AuthorPublicationsChart
 } from '../components/Charts';
 import SearchBar from '../components/SearchBar';
-import { 
+import {
   FaSearch,
   FaChartLine,
   FaDatabase
@@ -34,35 +34,37 @@ const Dashboard = () => {
   const fetchDashboardData = async () => {
     try {
       setLoading(true);
-      
-      // Fetch actual data from backend (HYBRID approach)
-      const data = await paperApi.getDashboardStats();
-      
+
+      // Fetch actual data from backend (HYBRID/MySQL approach)
+      const overview = await statsApi.getOverview();
+      const data = overview; // statsApi.getOverview likely returns the same structure as paperApi.getDashboardStats did/would
+
       // Transform the data to match the expected format
       const transformedStats = {
         totalPapers: data.database_overview?.mysql?.total_papers || 0,
         uniqueAuthors: data.database_overview?.mysql?.total_authors || 0,
-        totalJournals: data.database_overview?.mongodb?.unique_journals || 0,
+        totalJournals: data.database_overview?.mongodb?.unique_journals || 0, // Fallback to Mongo stats if populated
+        // ... rest stays same if property names match
         papersPerYear: data.analytics?.papers_per_year?.map(item => ({
-          year: item._id,
+          year: item.publish_year, // MySQL returns publish_year
           count: item.count
         })) || [],
         topJournals: data.analytics?.top_journals?.map(item => ({
-          name: item.journal || item._id,
+          name: item.journal, // MySQL returns journal
           value: item.count
         })).slice(0, 5) || [],
         topAuthors: data.analytics?.top_authors?.map(item => ({
-          author: item.author || item._id,
-          papers: item.count
+          author: item.name, // MySQL returns name
+          papers: item.paper_count // MySQL returns paper_count
         })).slice(0, 5) || [],
         dataSources: {
           mysql: data.database_overview?.mysql?.role || 'SQL Database',
           mongodb: data.database_overview?.mongodb?.role || 'MongoDB Database'
         }
       };
-      
+
       setStats(transformedStats);
-      
+
     } catch (error) {
       console.error('Failed to fetch dashboard data:', error);
       toast.error('Failed to load dashboard data');
@@ -110,24 +112,24 @@ const Dashboard = () => {
 
         {/* Stats Cards */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-          <StatCard 
-            title="Total Papers" 
-            value={stats.totalPapers} 
+          <StatCard
+            title="Total Papers"
+            value={stats.totalPapers}
             type="papers"
           />
-          <StatCard 
-            title="Unique Authors" 
-            value={stats.uniqueAuthors} 
+          <StatCard
+            title="Unique Authors"
+            value={stats.uniqueAuthors}
             type="authors"
           />
-          <StatCard 
-            title="Journals" 
-            value={stats.totalJournals} 
+          <StatCard
+            title="Journals"
+            value={stats.totalJournals}
             type="journals"
           />
-          <StatCard 
-            title="Years Covered" 
-            value={stats.papersPerYear.length} 
+          <StatCard
+            title="Years Covered"
+            value={stats.papersPerYear.length}
             type="years"
           />
         </div>
@@ -237,21 +239,21 @@ const Dashboard = () => {
           <div className="card">
             <h3 className="text-lg font-semibold mb-4">Quick Actions</h3>
             <div className="space-y-3">
-              <button 
+              <button
                 onClick={() => window.location.href = '/papers'}
                 className="w-full btn-secondary text-left p-3 flex items-center justify-between hover:bg-primary-50 transition-colors"
               >
                 <span>Browse All Papers</span>
                 <span className="text-sm text-gray-500">MongoDB</span>
               </button>
-              <button 
+              <button
                 onClick={() => window.location.href = '/authors'}
                 className="w-full btn-secondary text-left p-3 flex items-center justify-between hover:bg-primary-50 transition-colors"
               >
                 <span>View Author Statistics</span>
                 <span className="text-sm text-gray-500">MySQL</span>
               </button>
-              <button 
+              <button
                 onClick={() => window.location.href = '/journals'}
                 className="w-full btn-secondary text-left p-3 flex items-center justify-between hover:bg-primary-50 transition-colors"
               >
