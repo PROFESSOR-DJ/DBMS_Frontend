@@ -1,283 +1,197 @@
 import React, { useState, useEffect } from 'react';
 import { paperApi, statsApi } from '../api/authApi';
 import StatCard from '../components/StatCard';
-import {
-  PapersPerYearChart,
-  TopJournalsChart,
-  AuthorPublicationsChart
-} from '../components/Charts';
+import { PapersPerYearChart, TopJournalsChart, AuthorPublicationsChart } from '../components/Charts';
 import SearchBar from '../components/SearchBar';
-import {
-  FaSearch,
-  FaChartLine,
-  FaDatabase
-} from 'react-icons/fa';
+import { FaSearch, FaChartLine, FaDatabase, FaArrowRight, FaFileAlt, FaUsers, FaNewspaper } from 'react-icons/fa';
 import toast from 'react-hot-toast';
+import { useTheme } from '../context/ThemeContext';
+import { getTheme } from '../utils/theme';
 
 const Dashboard = () => {
+  const { isDark } = useTheme();
+  const t = getTheme(isDark);
+
   const [stats, setStats] = useState({
-    totalPapers: 0,
-    uniqueAuthors: 0,
-    totalJournals: 0,
-    papersPerYear: [],
-    topJournals: [],
-    topAuthors: [],
-    dataSources: {}
+    totalPapers: 0, uniqueAuthors: 0, totalJournals: 0,
+    papersPerYear: [], topJournals: [], topAuthors: [], dataSources: {}
   });
   const [loading, setLoading] = useState(true);
-  const [searchQuery, setSearchQuery] = useState('');
 
-  useEffect(() => {
-    fetchDashboardData();
-  }, []);
+  useEffect(() => { fetchDashboardData(); }, []);
 
   const fetchDashboardData = async () => {
     try {
       setLoading(true);
-
-      // Fetch actual data from backend (HYBRID/MySQL approach)
-      const overview = await statsApi.getOverview();
-      const data = overview; // statsApi.getOverview likely returns the same structure as paperApi.getDashboardStats did/would
-
-      // Transform the data to match the expected format
-      const transformedStats = {
+      const data = await statsApi.getOverview();
+      setStats({
         totalPapers: data.database_overview?.mysql?.total_papers || 0,
         uniqueAuthors: data.database_overview?.mysql?.total_authors || 0,
-        totalJournals: data.database_overview?.mongodb?.unique_journals || 0, // Fallback to Mongo stats if populated
-        // ... rest stays same if property names match
-        papersPerYear: data.analytics?.papers_per_year?.map(item => ({
-          year: item.publish_year, // MySQL returns publish_year
-          count: item.count
-        })) || [],
-        topJournals: data.analytics?.top_journals?.map(item => ({
-          name: item.journal, // MySQL returns journal
-          value: item.count
-        })).slice(0, 5) || [],
-        topAuthors: data.analytics?.top_authors?.map(item => ({
-          author: item.name, // MySQL returns name
-          papers: item.paper_count // MySQL returns paper_count
-        })).slice(0, 5) || [],
+        totalJournals: data.database_overview?.mongodb?.unique_journals || 0,
+        papersPerYear: data.analytics?.papers_per_year?.map(i => ({ year: i.publish_year, count: i.count })) || [],
+        topJournals: data.analytics?.top_journals?.map(i => ({ name: i.journal, value: i.count })).slice(0, 5) || [],
+        topAuthors: data.analytics?.top_authors?.map(i => ({ author: i.name, papers: i.paper_count })).slice(0, 5) || [],
         dataSources: {
           mysql: data.database_overview?.mysql?.role || 'SQL Database',
-          mongodb: data.database_overview?.mongodb?.role || 'MongoDB Database'
+          mongodb: data.database_overview?.mongodb?.role || 'MongoDB Database',
         }
-      };
-
-      setStats(transformedStats);
-
-    } catch (error) {
-      console.error('Failed to fetch dashboard data:', error);
-      toast.error('Failed to load dashboard data');
-    } finally {
-      setLoading(false);
-    }
+      });
+    } catch { toast.error('Failed to load dashboard data'); }
+    finally { setLoading(false); }
   };
 
-  const handleSearch = (query) => {
-    setSearchQuery(query);
-    // Navigate to papers page with search query
-    window.location.href = `/papers?q=${encodeURIComponent(query)}`;
-  };
+  const handleSearch = (query) => { window.location.href = `/papers?q=${encodeURIComponent(query)}`; };
 
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600 mx-auto"></div>
-          <p className="mt-4 text-gray-600">Loading dashboard data...</p>
-        </div>
+  if (loading) return (
+    <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: t.pageBg }}>
+      <div style={{ textAlign: 'center' }}>
+        <div style={{ width: 52, height: 52, borderRadius: '50%', border: `3px solid ${t.accentBg}`, borderTopColor: t.accent, animation: 'spin 0.8s linear infinite', margin: '0 auto 1rem' }} />
+        <style>{`@keyframes spin{to{transform:rotate(360deg)}}`}</style>
+        <p style={{ color: t.textMuted, fontSize: '0.9rem' }}>Loading dashboard…</p>
       </div>
-    );
-  }
+    </div>
+  );
+
+  const SectionLabel = ({ icon: Icon, text }) => (
+    <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: '1.25rem' }}>
+      <div style={{ width: 34, height: 34, borderRadius: 10, background: t.sectionIconBg, display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: t.sectionIconGlow }}>
+        <Icon size={14} color="white" />
+      </div>
+      <h2 style={{ fontSize: '1.05rem', fontWeight: 700, color: t.textPrimary }}>{text}</h2>
+    </div>
+  );
+
+  const glassPanel = { background: t.cardBg, backdropFilter: 'blur(16px)', border: `1px solid ${t.cardBorder}`, borderRadius: 18, padding: '1.5rem', boxShadow: t.cardShadow };
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Header */}
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">Dashboard Overview</h1>
-          <p className="text-gray-600">
-            Hybrid Database Architecture: MySQL for relationships, MongoDB for search & analytics
-          </p>
+    <div style={{ minHeight: '100vh', background: t.pageBg, transition: 'background 0.4s ease' }}>
+      <div style={{ maxWidth: 1280, margin: '0 auto', padding: '2rem 1.5rem' }}>
+
+        {/* HERO */}
+        <div className="animate-fade-in" style={{ marginBottom: '2.5rem', position: 'relative' }}>
+          <div style={{ position: 'absolute', top: -40, left: -40, width: 300, height: 200, background: `radial-gradient(circle,${t.accentBg} 0%,transparent 70%)`, filter: 'blur(40px)', pointerEvents: 'none' }} />
+          <p style={{ fontSize: '0.78rem', fontWeight: 700, color: t.accent, textTransform: 'uppercase', letterSpacing: '0.12em', marginBottom: '0.5rem' }}>✦ Research Intelligence Platform</p>
+          <h1 style={{ fontSize: 'clamp(1.8rem,4vw,2.8rem)', fontWeight: 900, background: t.accentGrad, WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text', lineHeight: 1.15, marginBottom: '0.6rem', letterSpacing: '-0.03em' }}>
+            Dashboard Overview
+          </h1>
+          <p style={{ color: t.textMuted, fontSize: '0.95rem', maxWidth: 520 }}>Hybrid Database Architecture — MySQL for relationships, MongoDB for search &amp; analytics</p>
         </div>
 
-        {/* Search Section */}
-        <div className="mb-8">
-          <div className="flex items-center mb-4">
-            <FaSearch className="mr-2 text-gray-500" />
-            <h2 className="text-lg font-semibold">Quick Search</h2>
-          </div>
+        {/* SEARCH */}
+        <div className="animate-fade-in" style={{ marginBottom: '2rem' }}>
+          <SectionLabel icon={FaSearch} text="Quick Search" />
           <SearchBar onSearch={handleSearch} placeholder="Search papers by title, author, or keyword..." />
         </div>
 
-        {/* Stats Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-          <StatCard
-            title="Total Papers"
-            value={stats.totalPapers}
-            type="papers"
-          />
-          <StatCard
-            title="Unique Authors"
-            value={stats.uniqueAuthors}
-            type="authors"
-          />
-          <StatCard
-            title="Journals"
-            value={stats.totalJournals}
-            type="journals"
-          />
-          <StatCard
-            title="Years Covered"
-            value={stats.papersPerYear.length}
-            type="years"
-          />
+        {/* STAT CARDS */}
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(220px,1fr))', gap: '1.25rem', marginBottom: '2.5rem' }}>
+          <StatCard title="Total Papers" value={stats.totalPapers} type="papers" delay={0} />
+          <StatCard title="Unique Authors" value={stats.uniqueAuthors} type="authors" delay={100} />
+          <StatCard title="Journals" value={stats.totalJournals} type="journals" delay={200} />
+          <StatCard title="Years Covered" value={stats.papersPerYear.length} type="years" delay={300} />
         </div>
 
-        {/* Charts Section */}
+        {/* CHARTS */}
         {stats.papersPerYear.length > 0 && (
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
-            <PapersPerYearChart data={stats.papersPerYear} />
-            {stats.topJournals.length > 0 && (
-              <TopJournalsChart data={stats.topJournals} />
-            )}
+          <div className="animate-fade-in" style={{ marginBottom: '2.5rem' }}>
+            <SectionLabel icon={FaChartLine} text="Analytics" />
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(340px,1fr))', gap: '1.5rem' }}>
+              <div style={glassPanel}><PapersPerYearChart data={stats.papersPerYear} /></div>
+              {stats.topJournals.length > 0 && <div style={glassPanel}><TopJournalsChart data={stats.topJournals} /></div>}
+            </div>
           </div>
         )}
 
-        {/* Top Authors Section */}
+        {/* TOP AUTHORS */}
         {stats.topAuthors.length > 0 && (
-          <div className="mb-8">
-            <div className="flex items-center mb-4">
-              <FaChartLine className="mr-2 text-gray-500" />
-              <h2 className="text-lg font-semibold">Top Publishing Authors</h2>
-            </div>
-            <AuthorPublicationsChart data={stats.topAuthors} />
+          <div className="animate-fade-in" style={{ marginBottom: '2.5rem' }}>
+            <SectionLabel icon={FaUsers} text="Top Publishing Authors" />
+            <div style={glassPanel}><AuthorPublicationsChart data={stats.topAuthors} /></div>
           </div>
         )}
 
-        {/* Database Architecture Information */}
-        <div className="mb-8">
-          <div className="flex items-center mb-4">
-            <FaDatabase className="mr-2 text-gray-500" />
-            <h2 className="text-lg font-semibold">Hybrid Database Architecture</h2>
-          </div>
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-            {/* MySQL Card */}
-            <div className="card bg-gradient-to-br from-blue-50 to-white border-blue-200">
-              <div className="flex items-center mb-4">
-                <div className="p-3 bg-blue-100 rounded-lg mr-3">
-                  <FaDatabase className="text-blue-600 text-xl" />
+        {/* DB ARCHITECTURE */}
+        <div className="animate-fade-in" style={{ marginBottom: '2.5rem' }}>
+          <SectionLabel icon={FaDatabase} text="Hybrid Database Architecture" />
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(300px,1fr))', gap: '1.5rem' }}>
+            {[
+              { label: 'MySQL Database', sub: 'Core Transactional Data', grad: 'linear-gradient(135deg,#06b6d4,#0ea5e9)', glow: 'rgba(6,182,212,0.4)', border: 'rgba(6,182,212,0.2)', borderH: 'rgba(6,182,212,0.4)', glowH: 'rgba(6,182,212,0.1)', rows: [['Purpose', 'Normalized Relationships'], ['Strengths', 'ACID, Constraints'], ['Used For', 'Users, Author-Paper Links']], stats: [['Total Papers', stats.totalPapers], ['Total Authors', stats.uniqueAuthors]] },
+              { label: 'MongoDB Database', sub: 'Search & Analytics Engine', grad: 'linear-gradient(135deg,#10b981,#06b6d4)', glow: 'rgba(16,185,129,0.4)', border: 'rgba(16,185,129,0.2)', borderH: 'rgba(16,185,129,0.4)', glowH: 'rgba(16,185,129,0.1)', rows: [['Purpose', 'Full-Text Search'], ['Strengths', 'Flexible, Scalable'], ['Used For', 'Metadata, Aggregations']], stats: [['Unique Journals', stats.totalJournals], ['Indexed Fields', 'Title, Abstract, Year']] },
+            ].map(({ label, sub, grad, glow, border, borderH, glowH, rows, stats: dbStats }) => (
+              <div key={label}
+                style={{ background: t.cardBg, backdropFilter: 'blur(16px)', border: `1px solid ${border}`, borderRadius: 18, padding: '1.5rem', boxShadow: t.cardShadow, transition: 'all 0.3s ease' }}
+                onMouseEnter={e => { e.currentTarget.style.borderColor = borderH; e.currentTarget.style.boxShadow = `0 8px 32px rgba(0,0,0,0.3), 0 0 20px ${glowH}`; e.currentTarget.style.transform = 'translateY(-3px)'; }}
+                onMouseLeave={e => { e.currentTarget.style.borderColor = border; e.currentTarget.style.boxShadow = t.cardShadow; e.currentTarget.style.transform = 'translateY(0)'; }}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: '1.25rem' }}>
+                  <div style={{ width: 44, height: 44, borderRadius: 12, background: grad, display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: `0 4px 14px ${glow}` }}>
+                    <FaDatabase size={18} color="white" />
+                  </div>
+                  <div>
+                    <h3 style={{ fontSize: '1rem', fontWeight: 700, color: t.textPrimary }}>{label}</h3>
+                    <p style={{ fontSize: '0.78rem', color: t.textMuted }}>{sub}</p>
+                  </div>
                 </div>
-                <div>
-                  <h3 className="text-lg font-semibold text-gray-900">MySQL Database</h3>
-                  <p className="text-sm text-gray-600">Core Transactional Data</p>
-                </div>
+                {rows.map(([k, v]) => (
+                  <div key={k} style={{ display: 'flex', justifyContent: 'space-between', padding: '0.5rem 0', borderBottom: `1px solid ${t.divider}` }}>
+                    <span style={{ fontSize: '0.82rem', color: t.textMuted }}>{k}</span>
+                    <span style={{ fontSize: '0.82rem', fontWeight: 600, color: t.textSecondary }}>{v}</span>
+                  </div>
+                ))}
+                {dbStats.map(([k, v]) => (
+                  <div key={k} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingTop: '0.75rem' }}>
+                    <span style={{ fontSize: '0.82rem', color: t.textMuted }}>{k}</span>
+                    <span style={{ fontSize: '1.3rem', fontWeight: 800, background: grad, WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text' }}>{typeof v === 'number' ? v.toLocaleString() : v}</span>
+                  </div>
+                ))}
               </div>
-              <div className="space-y-3">
-                <div className="flex justify-between items-center">
-                  <span className="text-sm text-gray-600">Purpose</span>
-                  <span className="text-sm font-medium text-gray-900">Normalized Relationships</span>
-                </div>
-                <div className="flex justify-between items-center">
-                  <span className="text-sm text-gray-600">Strengths</span>
-                  <span className="text-sm font-medium text-gray-900">ACID, Constraints</span>
-                </div>
-                <div className="flex justify-between items-center">
-                  <span className="text-sm text-gray-600">Used For</span>
-                  <span className="text-sm font-medium text-gray-900">Users, Author-Paper Links</span>
-                </div>
-                <div className="flex justify-between items-center pt-3 border-t border-gray-200">
-                  <span className="text-sm text-gray-600">Total Papers</span>
-                  <span className="text-lg font-bold text-blue-600">{stats.totalPapers.toLocaleString()}</span>
-                </div>
-                <div className="flex justify-between items-center">
-                  <span className="text-sm text-gray-600">Total Authors</span>
-                  <span className="text-lg font-bold text-blue-600">{stats.uniqueAuthors.toLocaleString()}</span>
-                </div>
-              </div>
-            </div>
-
-            {/* MongoDB Card */}
-            <div className="card bg-gradient-to-br from-green-50 to-white border-green-200">
-              <div className="flex items-center mb-4">
-                <div className="p-3 bg-green-100 rounded-lg mr-3">
-                  <FaDatabase className="text-green-600 text-xl" />
-                </div>
-                <div>
-                  <h3 className="text-lg font-semibold text-gray-900">MongoDB Database</h3>
-                  <p className="text-sm text-gray-600">Search & Analytics Engine</p>
-                </div>
-              </div>
-              <div className="space-y-3">
-                <div className="flex justify-between items-center">
-                  <span className="text-sm text-gray-600">Purpose</span>
-                  <span className="text-sm font-medium text-gray-900">Full-Text Search</span>
-                </div>
-                <div className="flex justify-between items-center">
-                  <span className="text-sm text-gray-600">Strengths</span>
-                  <span className="text-sm font-medium text-gray-900">Flexible, Scalable</span>
-                </div>
-                <div className="flex justify-between items-center">
-                  <span className="text-sm text-gray-600">Used For</span>
-                  <span className="text-sm font-medium text-gray-900">Metadata, Aggregations</span>
-                </div>
-                <div className="flex justify-between items-center pt-3 border-t border-gray-200">
-                  <span className="text-sm text-gray-600">Unique Journals</span>
-                  <span className="text-lg font-bold text-green-600">{stats.totalJournals.toLocaleString()}</span>
-                </div>
-                <div className="flex justify-between items-center">
-                  <span className="text-sm text-gray-600">Indexed Fields</span>
-                  <span className="text-sm font-medium text-gray-900">Title, Abstract, Year</span>
-                </div>
-              </div>
-            </div>
+            ))}
           </div>
         </div>
 
-        {/* Quick Actions and Database Info */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-          <div className="card">
-            <h3 className="text-lg font-semibold mb-4">Quick Actions</h3>
-            <div className="space-y-3">
-              <button
-                onClick={() => window.location.href = '/papers'}
-                className="w-full btn-secondary text-left p-3 flex items-center justify-between hover:bg-primary-50 transition-colors"
-              >
-                <span>Browse All Papers</span>
-                <span className="text-sm text-gray-500">MongoDB</span>
-              </button>
-              <button
-                onClick={() => window.location.href = '/authors'}
-                className="w-full btn-secondary text-left p-3 flex items-center justify-between hover:bg-primary-50 transition-colors"
-              >
-                <span>View Author Statistics</span>
-                <span className="text-sm text-gray-500">MySQL</span>
-              </button>
-              <button
-                onClick={() => window.location.href = '/journals'}
-                className="w-full btn-secondary text-left p-3 flex items-center justify-between hover:bg-primary-50 transition-colors"
-              >
-                <span>Explore Journals</span>
-                <span className="text-sm text-gray-500">MongoDB</span>
-              </button>
+        {/* QUICK ACTIONS + POLYGLOT */}
+        <div className="animate-fade-in" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(300px,1fr))', gap: '1.5rem' }}>
+          <div style={glassPanel}>
+            <h3 style={{ fontSize: '1rem', fontWeight: 700, color: t.textPrimary, marginBottom: '1.25rem' }}>Quick Actions</h3>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+              {[
+                { label: 'Browse All Papers', href: '/papers', tag: 'MongoDB', icon: FaFileAlt, color: t.accent },
+                { label: 'View Author Statistics', href: '/authors', tag: 'MySQL', icon: FaUsers, color: '#a855f7' },
+                { label: 'Explore Journals', href: '/journals', tag: 'MongoDB', icon: FaNewspaper, color: '#10b981' },
+              ].map(({ label, href, tag, icon: Icon, color }) => (
+                <button key={href} onClick={() => window.location.href = href}
+                  style={{ width: '100%', padding: '0.85rem 1rem', background: t.cardBg, border: `1px solid ${t.cardBorder}`, borderRadius: 12, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'space-between', transition: 'all 0.25s ease' }}
+                  onMouseEnter={e => { e.currentTarget.style.background = t.cardHover; e.currentTarget.style.borderColor = `${color}40`; e.currentTarget.style.transform = 'translateX(4px)'; }}
+                  onMouseLeave={e => { e.currentTarget.style.background = t.cardBg; e.currentTarget.style.borderColor = t.cardBorder; e.currentTarget.style.transform = 'translateX(0)'; }}
+                >
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                    <div style={{ width: 32, height: 32, borderRadius: 9, background: `${color}20`, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                      <Icon size={13} style={{ color }} />
+                    </div>
+                    <span style={{ fontSize: '0.875rem', fontWeight: 500, color: t.textSecondary }}>{label}</span>
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <span style={{ fontSize: '0.72rem', fontWeight: 600, color: t.textMuted, background: t.cardBg, padding: '0.2rem 0.55rem', borderRadius: 999, border: `1px solid ${t.cardBorder}` }}>{tag}</span>
+                    <FaArrowRight size={11} style={{ color: t.textMuted }} />
+                  </div>
+                </button>
+              ))}
             </div>
           </div>
 
-          <div className="card">
-            <h3 className="text-lg font-semibold mb-4">Polyglot Persistence</h3>
-            <div className="space-y-3">
-              <div className="p-3 bg-blue-50 rounded-lg">
-                <p className="text-sm font-medium text-blue-900 mb-1">MySQL Queries</p>
-                <p className="text-xs text-blue-700">Optimized with heuristic: GROUP BY before JOIN</p>
-              </div>
-              <div className="p-3 bg-green-50 rounded-lg">
-                <p className="text-sm font-medium text-green-900 mb-1">MongoDB Queries</p>
-                <p className="text-xs text-green-700">Aggregation pipelines with compound indexes</p>
-              </div>
-              <div className="p-3 bg-purple-50 rounded-lg">
-                <p className="text-sm font-medium text-purple-900 mb-1">Hybrid Approach</p>
-                <p className="text-xs text-purple-700">Right database for the right job</p>
-              </div>
+          <div style={glassPanel}>
+            <h3 style={{ fontSize: '1rem', fontWeight: 700, color: t.textPrimary, marginBottom: '1.25rem' }}>Polyglot Persistence</h3>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.65rem' }}>
+              {[
+                { title: 'MySQL Queries', desc: 'Optimized with heuristic: GROUP BY before JOIN', bg: t.accentBg, border: t.accentBorder, tc: t.accentText, dc: t.accent },
+                { title: 'MongoDB Queries', desc: 'Aggregation pipelines with compound indexes', bg: 'rgba(16,185,129,0.10)', border: 'rgba(16,185,129,0.2)', tc: '#6ee7b7', dc: '#34d399' },
+                { title: 'Hybrid Approach', desc: 'Right database for the right job', bg: 'rgba(168,85,247,0.10)', border: 'rgba(168,85,247,0.2)', tc: '#d8b4fe', dc: '#c084fc' },
+              ].map(({ title, desc, bg, border, tc, dc }) => (
+                <div key={title} style={{ padding: '0.85rem 1rem', background: bg, border: `1px solid ${border}`, borderRadius: 12 }}>
+                  <p style={{ fontSize: '0.85rem', fontWeight: 600, color: tc, marginBottom: '0.25rem' }}>{title}</p>
+                  <p style={{ fontSize: '0.78rem', color: dc, opacity: 0.85 }}>{desc}</p>
+                </div>
+              ))}
             </div>
           </div>
         </div>

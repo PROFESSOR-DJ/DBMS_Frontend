@@ -2,326 +2,142 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { paperApi } from '../api/authApi';
 import PaperCard from '../components/PaperCard';
-import {
-  FaFilter,
-  FaSort,
-  FaSearch,
-  FaTimes,
-  FaChevronDown,
-  FaChevronUp,
-  FaCalendarAlt,
-  FaNewspaper,
-  FaUser,
-  FaQuoteRight,
-  FaDatabase,
-  FaPlus,
-  FaEdit,
-  FaTrash
-} from 'react-icons/fa';
+import { FaFilter, FaSort, FaSearch, FaTimes, FaChevronDown, FaChevronUp, FaCalendarAlt, FaNewspaper, FaUser, FaQuoteRight, FaDatabase, FaPlus, FaEdit, FaTrash } from 'react-icons/fa';
 import toast from 'react-hot-toast';
+import { useTheme } from '../context/ThemeContext';
+import { getTheme } from '../utils/theme';
 
 const Papers = () => {
+  const { isDark } = useTheme();
+  const t = getTheme(isDark);
   const navigate = useNavigate();
   const [papers, setPapers] = useState([]);
   const [loading, setLoading] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+  const [searchFocused, setSearchFocused] = useState(false);
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [total, setTotal] = useState(0);
-
-  // Advanced filters (NO source field - backend decides automatically)
-  const [filters, setFilters] = useState({
-    yearFrom: '',
-    yearTo: '',
-    journal: '',
-    author: '',
-    minCitations: '',
-    sortBy: 'recent'
-  });
-
-  // Filter panel states
-  const [expandedSections, setExpandedSections] = useState({
-    year: true,
-    journal: false,
-    author: false,
-    citations: false
-  });
-
+  const [filters, setFilters] = useState({ yearFrom: '', yearTo: '', journal: '', author: '', minCitations: '', sortBy: 'recent' });
+  const [expandedSections, setExpandedSections] = useState({ year: true, journal: false, author: false, citations: false });
   const [showFilters, setShowFilters] = useState(true);
   const [activeFiltersCount, setActiveFiltersCount] = useState(0);
-
-  // Available filter options
-  const [filterOptions] = useState({
-    years: Array.from({ length: 20 }, (_, i) => 2024 - i)
-  });
+  const [filterOptions] = useState({ years: Array.from({ length: 20 }, (_, i) => 2024 - i) });
 
   useEffect(() => {
-    const urlParams = new URLSearchParams(window.location.search);
-    const q = urlParams.get('q');
-    if (q) {
-      setSearchQuery(q);
-      handleSearch(q);
-    } else {
-      fetchPapers();
-    }
+    const q = new URLSearchParams(window.location.search).get('q');
+    if (q) { setSearchQuery(q); handleSearch(q); } else { fetchPapers(); }
   }, [page, filters.sortBy]);
 
   useEffect(() => {
-    // Count active filters
-    const count = Object.entries(filters).filter(([key, value]) =>
-      value && key !== 'sortBy'
-    ).length;
-    setActiveFiltersCount(count);
+    setActiveFiltersCount(Object.entries(filters).filter(([k, v]) => v && k !== 'sortBy').length);
   }, [filters]);
 
   const fetchPapers = async () => {
     setLoading(true);
-    try {
-      // Backend automatically uses MongoDB for browsing (optimized)
-      const data = await paperApi.getAllPapers(page, 20, filters.sortBy);
-      setPapers(data.papers || []);
-      setTotalPages(data.pagination?.pages || 1);
-      setTotal(data.pagination?.total || 0);
-    } catch (error) {
-      console.error('Failed to fetch papers:', error);
-      toast.error('Failed to load papers');
-    } finally {
-      setLoading(false);
-    }
+    try { const d = await paperApi.getAllPapers(page, 20, filters.sortBy); setPapers(d.papers || []); setTotalPages(d.pagination?.pages || 1); setTotal(d.pagination?.total || 0); }
+    catch { toast.error('Failed to load papers'); } finally { setLoading(false); }
   };
 
   const handleSearch = async (query = searchQuery) => {
-    if (!query.trim()) {
-      fetchPapers();
-      return;
-    }
-
+    if (!query.trim()) { fetchPapers(); return; }
     setLoading(true);
     try {
-      // Backend automatically uses MongoDB for text search (optimized)
-      const searchFilters = {
-        ...(filters.yearFrom && { yearFrom: filters.yearFrom }),
-        ...(filters.yearTo && { yearTo: filters.yearTo }),
-        ...(filters.journal && { journal: filters.journal }),
-        ...(filters.author && { author: filters.author }),
-        ...(filters.minCitations && { minCitations: filters.minCitations }),
-        sortBy: filters.sortBy
-      };
-
-      const data = await paperApi.searchPapers(query, searchFilters);
-      setPapers(data.papers || []);
-      setTotal(data.total || 0);
-      setPage(1);
-    } catch (error) {
-      console.error('Search failed:', error);
-      toast.error('Search failed');
-    } finally {
-      setLoading(false);
-    }
+      const sf = { ...(filters.yearFrom && { yearFrom: filters.yearFrom }), ...(filters.yearTo && { yearTo: filters.yearTo }), ...(filters.journal && { journal: filters.journal }), ...(filters.author && { author: filters.author }), ...(filters.minCitations && { minCitations: filters.minCitations }), sortBy: filters.sortBy };
+      const d = await paperApi.searchPapers(query, sf);
+      setPapers(d.papers || []); setTotal(d.total || 0); setPage(1);
+    } catch { toast.error('Search failed'); } finally { setLoading(false); }
   };
 
-  const handleFilterChange = (key, value) => {
-    setFilters(prev => ({
-      ...prev,
-      [key]: value,
-    }));
-  };
-
-  const applyFilters = () => {
-    setPage(1);
-    if (searchQuery) {
-      handleSearch();
-    } else {
-      fetchPapers();
-    }
-  };
-
-  const clearAllFilters = () => {
-    setFilters({
-      yearFrom: '',
-      yearTo: '',
-      journal: '',
-      author: '',
-      minCitations: '',
-      sortBy: 'recent'
-    });
-    setSearchQuery('');
-    setPage(1);
-  };
-
-  const toggleSection = (section) => {
-    setExpandedSections(prev => ({
-      ...prev,
-      [section]: !prev[section]
-    }));
-  };
-
-  const removeFilter = (filterKey) => {
-    setFilters(prev => ({
-      ...prev,
-      [filterKey]: ''
-    }));
-  };
-
-  // CRUD Handlers
-  const handleAddNew = () => {
-    navigate('/papers/new');
-  };
-
-  const handleEdit = (paper) => {
-    navigate(`/papers/edit/${paper.paper_id || paper._id}`);
-  };
-
+  const handleFilterChange = (k, v) => setFilters(p => ({ ...p, [k]: v }));
+  const applyFilters = () => { setPage(1); searchQuery ? handleSearch() : fetchPapers(); };
+  const clearAllFilters = () => { setFilters({ yearFrom: '', yearTo: '', journal: '', author: '', minCitations: '', sortBy: 'recent' }); setSearchQuery(''); setPage(1); };
+  const toggleSection = (s) => setExpandedSections(p => ({ ...p, [s]: !p[s] }));
+  const removeFilter = (k) => setFilters(p => ({ ...p, [k]: '' }));
+  const handleEdit = (paper) => navigate(`/papers/edit/${paper.paper_id || paper._id}`);
   const handleDelete = async (id) => {
-    if (window.confirm('Are you sure you want to delete this paper?')) {
-      try {
-        await paperApi.deletePaper(id);
-        toast.success('Paper deleted successfully');
-        fetchPapers(); // Refresh list
-      } catch (error) {
-        console.error('Delete failed:', error);
-        toast.error('Failed to delete paper');
-      }
+    if (window.confirm('Delete this paper?')) {
+      try { await paperApi.deletePaper(id); toast.success('Deleted'); fetchPapers(); }
+      catch { toast.error('Failed to delete'); }
     }
   };
+
+  const inputStyle = { width: '100%', padding: '0.5rem 0.75rem', borderRadius: 10, background: t.inputBg, border: `1px solid ${t.inputBorder}`, color: t.inputColor, fontSize: '0.85rem', outline: 'none' };
+  const applyBtn = <button onClick={applyFilters} style={{ width: '100%', padding: '0.45rem', borderRadius: 8, background: t.accentGrad, border: 'none', color: 'white', fontSize: '0.8rem', fontWeight: 600, cursor: 'pointer' }}>Apply</button>;
+
+  const FilterSection = ({ id, icon: Icon, label, children }) => (
+    <div style={{ borderBottom: `1px solid ${t.divider}`, padding: '0.85rem 1rem' }}>
+      <button onClick={() => toggleSection(id)} style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: 'none', border: 'none', cursor: 'pointer', marginBottom: expandedSections[id] ? '0.75rem' : 0 }}>
+        <span style={{ display: 'flex', alignItems: 'center', gap: 7, fontSize: '0.85rem', fontWeight: 600, color: t.textSecondary }}>
+          <Icon size={13} style={{ color: t.accent }} /> {label}
+        </span>
+        {expandedSections[id] ? <FaChevronUp size={11} color={t.textMuted} /> : <FaChevronDown size={11} color={t.textMuted} />}
+      </button>
+      {expandedSections[id] && <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>{children}</div>}
+    </div>
+  );
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-        {/* Header with Search */}
-        <div className="mb-6">
-          <div className="flex items-center justify-between mb-4">
+    <div style={{ minHeight: '100vh', background: t.pageBg, transition: 'background 0.4s ease' }}>
+      <div style={{ maxWidth: 1280, margin: '0 auto', padding: '2rem 1.5rem' }}>
+
+        {/* HEADER */}
+        <div className="animate-fade-in" style={{ marginBottom: '1.75rem' }}>
+          <p style={{ fontSize: '0.75rem', fontWeight: 700, color: t.accent, textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '0.4rem' }}>✦ MongoDB Full-Text Search</p>
+          <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', flexWrap: 'wrap', gap: '1rem' }}>
             <div>
-              <h1 className="text-2xl font-bold text-gray-900">Search Research Papers</h1>
-              <p className="text-sm text-gray-600 flex items-center mt-1">
-                <FaDatabase className="mr-1 text-green-600" size={12} />
-                Powered by MongoDB full-text search
+              <h1 style={{ fontSize: 'clamp(1.5rem,3vw,2.2rem)', fontWeight: 900, background: t.accentGrad, WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text', letterSpacing: '-0.02em' }}>Research Papers</h1>
+              <p style={{ color: t.textMuted, fontSize: '0.875rem', marginTop: '0.25rem' }}>
+                <FaDatabase size={11} style={{ display: 'inline', marginRight: 5, color: '#10b981' }} />Powered by MongoDB full-text search
               </p>
             </div>
-            <button
-              onClick={handleAddNew}
-              className="bg-green-600 text-white px-4 py-2 rounded-lg flex items-center gap-2 hover:bg-green-700 transition-colors shadow-sm"
-            >
-              <FaPlus /> Add Paper
-            </button>
+            <button onClick={() => navigate('/papers/new')}
+              style={{ display: 'inline-flex', alignItems: 'center', gap: 7, padding: '0.6rem 1.1rem', borderRadius: 11, background: t.accentGrad, border: 'none', color: 'white', fontWeight: 700, fontSize: '0.875rem', cursor: 'pointer', boxShadow: `0 4px 14px ${t.accentGlow}`, transition: 'all 0.2s ease' }}
+              onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-2px)'; e.currentTarget.style.boxShadow = `0 8px 20px ${t.accentGlow}`; }}
+              onMouseLeave={e => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = `0 4px 14px ${t.accentGlow}`; }}
+            ><FaPlus size={12} /> Add Paper</button>
           </div>
-
-          {/* Search Bar */}
-          <div className="relative">
-            <input
-              type="text"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              onKeyPress={(e) => e.key === 'Enter' && handleSearch()}
-              placeholder="Search by title, author, keyword, or abstract..."
-              className="w-full px-4 py-3 pl-12 pr-24 text-lg border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
-            />
-            <FaSearch className="absolute left-4 top-4 text-gray-400 text-xl" />
-            <button
-              onClick={() => handleSearch()}
-              className="absolute right-2 top-2 bg-primary-600 text-white px-6 py-2 rounded-md hover:bg-primary-700 transition-colors font-medium"
-            >
-              Search
-            </button>
-          </div>
-
-          {/* Active Filters Display */}
-          {activeFiltersCount > 0 && (
-            <div className="mt-4 flex flex-wrap gap-2 items-center">
-              <span className="text-sm font-medium text-gray-600">Active filters:</span>
-              {filters.yearFrom && (
-                <span className="inline-flex items-center px-3 py-1 rounded-full text-sm bg-primary-100 text-primary-800">
-                  Year from: {filters.yearFrom}
-                  <button
-                    onClick={() => removeFilter('yearFrom')}
-                    className="ml-2 hover:text-primary-900"
-                  >
-                    <FaTimes size={12} />
-                  </button>
-                </span>
-              )}
-              {filters.yearTo && (
-                <span className="inline-flex items-center px-3 py-1 rounded-full text-sm bg-primary-100 text-primary-800">
-                  Year to: {filters.yearTo}
-                  <button
-                    onClick={() => removeFilter('yearTo')}
-                    className="ml-2 hover:text-primary-900"
-                  >
-                    <FaTimes size={12} />
-                  </button>
-                </span>
-              )}
-              {filters.journal && (
-                <span className="inline-flex items-center px-3 py-1 rounded-full text-sm bg-primary-100 text-primary-800">
-                  Journal: {filters.journal}
-                  <button
-                    onClick={() => removeFilter('journal')}
-                    className="ml-2 hover:text-primary-900"
-                  >
-                    <FaTimes size={12} />
-                  </button>
-                </span>
-              )}
-              {filters.author && (
-                <span className="inline-flex items-center px-3 py-1 rounded-full text-sm bg-primary-100 text-primary-800">
-                  Author: {filters.author}
-                  <button
-                    onClick={() => removeFilter('author')}
-                    className="ml-2 hover:text-primary-900"
-                  >
-                    <FaTimes size={12} />
-                  </button>
-                </span>
-              )}
-              {filters.minCitations && (
-                <span className="inline-flex items-center px-3 py-1 rounded-full text-sm bg-primary-100 text-primary-800">
-                  Min citations: {filters.minCitations}
-                  <button
-                    onClick={() => removeFilter('minCitations')}
-                    className="ml-2 hover:text-primary-900"
-                  >
-                    <FaTimes size={12} />
-                  </button>
-                </span>
-              )}
-              <button
-                onClick={clearAllFilters}
-                className="text-sm text-primary-600 hover:text-primary-800 font-medium"
-              >
-                Clear all
-              </button>
-            </div>
-          )}
         </div>
 
-        {/* Results Count and Sort */}
-        <div className="mb-4 flex justify-between items-center">
-          <div className="flex items-center gap-4">
-            <p className="text-gray-700">
-              <span className="font-semibold">{total.toLocaleString()}</span> results found
-              {searchQuery && <span> for "<strong>{searchQuery}</strong>"</span>}
-            </p>
-            <button
-              onClick={() => setShowFilters(!showFilters)}
-              className="flex items-center gap-2 text-primary-600 hover:text-primary-800"
-            >
-              <FaFilter />
-              {showFilters ? 'Hide' : 'Show'} Filters
-              {activeFiltersCount > 0 && (
-                <span className="bg-primary-600 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs">
-                  {activeFiltersCount}
+        {/* SEARCH */}
+        <div style={{ marginBottom: '1.25rem', position: 'relative' }}>
+          <FaSearch size={15} style={{ position: 'absolute', left: 16, top: '50%', transform: 'translateY(-50%)', color: searchFocused ? t.accent : t.textMuted, transition: 'color 0.2s ease', zIndex: 1 }} />
+          <input type="text" value={searchQuery} onChange={e => setSearchQuery(e.target.value)} onKeyPress={e => e.key === 'Enter' && handleSearch()} onFocus={() => setSearchFocused(true)} onBlur={() => setSearchFocused(false)} placeholder="Search by title, author, keyword, or abstract..."
+            style={{ width: '100%', padding: '0.9rem 8rem 0.9rem 2.75rem', borderRadius: 14, background: searchFocused ? t.cardHover : t.inputBg, border: `1px solid ${searchFocused ? t.accentBorder : t.inputBorder}`, color: t.inputColor, fontSize: '0.95rem', outline: 'none', boxShadow: searchFocused ? `0 0 0 3px ${t.accentBg}` : 'none', transition: 'all 0.3s ease' }} />
+          <button onClick={() => handleSearch()} style={{ position: 'absolute', right: 8, top: '50%', transform: 'translateY(-50%)', padding: '0.5rem 1.2rem', borderRadius: 10, background: t.accentGrad, border: 'none', color: 'white', fontWeight: 700, fontSize: '0.85rem', cursor: 'pointer' }}>Search</button>
+        </div>
+
+        {/* ACTIVE FILTER CHIPS */}
+        {activeFiltersCount > 0 && (
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem', alignItems: 'center', marginBottom: '1rem' }}>
+            <span style={{ fontSize: '0.78rem', color: t.textMuted, fontWeight: 600 }}>Active filters:</span>
+            {[['yearFrom', 'Year from'], ['yearTo', 'Year to'], ['journal', 'Journal'], ['author', 'Author'], ['minCitations', 'Min citations']].map(([k, label]) =>
+              filters[k] ? (
+                <span key={k} style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '0.25rem 0.7rem', borderRadius: 999, fontSize: '0.78rem', background: t.accentBg, color: t.accentText, border: `1px solid ${t.accentBorder}` }}>
+                  {label}: {filters[k]}
+                  <button onClick={() => removeFilter(k)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: t.accentText, display: 'flex' }}><FaTimes size={10} /></button>
                 </span>
-              )}
+              ) : null
+            )}
+            <button onClick={clearAllFilters} style={{ fontSize: '0.78rem', color: t.accentText, background: 'none', border: 'none', cursor: 'pointer', fontWeight: 600 }}>Clear all</button>
+          </div>
+        )}
+
+        {/* RESULTS BAR */}
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem', flexWrap: 'wrap', gap: '0.75rem' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+            <p style={{ fontSize: '0.875rem', color: t.textSecondary }}>
+              <span style={{ fontWeight: 700, color: t.textPrimary }}>{total.toLocaleString()}</span> results
+              {searchQuery && <span> for "<strong style={{ color: t.accentText }}>{searchQuery}</strong>"</span>}
+            </p>
+            <button onClick={() => setShowFilters(!showFilters)} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: '0.82rem', fontWeight: 600, color: t.accentText, background: t.accentBg, border: `1px solid ${t.accentBorder}`, borderRadius: 8, padding: '0.35rem 0.75rem', cursor: 'pointer' }}>
+              <FaFilter size={11} />{showFilters ? 'Hide' : 'Show'} Filters
+              {activeFiltersCount > 0 && <span style={{ background: t.accentGrad, color: 'white', borderRadius: 999, width: 18, height: 18, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.7rem', fontWeight: 700 }}>{activeFiltersCount}</span>}
             </button>
           </div>
-
-          <div className="flex items-center gap-2">
-            <FaSort className="text-gray-500" />
-            <select
-              value={filters.sortBy}
-              onChange={(e) => handleFilterChange('sortBy', e.target.value)}
-              className="border border-gray-300 rounded-md px-3 py-2 text-sm focus:ring-2 focus:ring-primary-500"
-            >
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <FaSort size={13} style={{ color: t.textMuted }} />
+            <select value={filters.sortBy} onChange={e => handleFilterChange('sortBy', e.target.value)} style={{ ...inputStyle, width: 'auto', padding: '0.4rem 0.75rem' }}>
               <option value="recent">Most Recent</option>
               <option value="citations">Most Cited</option>
               <option value="title">Title A-Z</option>
@@ -330,269 +146,62 @@ const Papers = () => {
           </div>
         </div>
 
-        {/* Main Content Area */}
-        <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
-          {/* Sidebar Filters */}
+        {/* MAIN GRID */}
+        <div style={{ display: 'grid', gridTemplateColumns: showFilters ? '240px 1fr' : '1fr', gap: '1.5rem', alignItems: 'start' }}>
           {showFilters && (
-            <div className="lg:col-span-1">
-              <div className="bg-white rounded-lg shadow-sm border border-gray-200 sticky top-6">
-                <div className="p-4 border-b border-gray-200">
-                  <h3 className="font-semibold text-gray-900 flex items-center justify-between">
-                    <span>Refine Results</span>
-                    {activeFiltersCount > 0 && (
-                      <button
-                        onClick={clearAllFilters}
-                        className="text-xs text-primary-600 hover:text-primary-800"
-                      >
-                        Clear all
-                      </button>
-                    )}
-                  </h3>
-                </div>
-
-                <div className="divide-y divide-gray-200">
-                  {/* Publication Year */}
-                  <div className="p-4">
-                    <button
-                      onClick={() => toggleSection('year')}
-                      className="w-full flex items-center justify-between mb-3"
-                    >
-                      <span className="font-medium text-gray-900 flex items-center gap-2">
-                        <FaCalendarAlt className="text-gray-500" size={14} />
-                        Publication Year
-                      </span>
-                      {expandedSections.year ? <FaChevronUp size={14} /> : <FaChevronDown size={14} />}
-                    </button>
-
-                    {expandedSections.year && (
-                      <div className="space-y-3">
-                        <div>
-                          <label className="block text-xs text-gray-600 mb-1">From</label>
-                          <select
-                            value={filters.yearFrom}
-                            onChange={(e) => handleFilterChange('yearFrom', e.target.value)}
-                            className="w-full border border-gray-300 rounded px-2 py-1 text-sm"
-                          >
-                            <option value="">Any year</option>
-                            {filterOptions.years.map(year => (
-                              <option key={year} value={year}>{year}</option>
-                            ))}
-                          </select>
-                        </div>
-                        <div>
-                          <label className="block text-xs text-gray-600 mb-1">To</label>
-                          <select
-                            value={filters.yearTo}
-                            onChange={(e) => handleFilterChange('yearTo', e.target.value)}
-                            className="w-full border border-gray-300 rounded px-2 py-1 text-sm"
-                          >
-                            <option value="">Any year</option>
-                            {filterOptions.years.map(year => (
-                              <option key={year} value={year}>{year}</option>
-                            ))}
-                          </select>
-                        </div>
-                        <button
-                          onClick={applyFilters}
-                          className="w-full bg-primary-600 text-white px-3 py-1.5 rounded text-sm hover:bg-primary-700"
-                        >
-                          Apply
-                        </button>
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Journal */}
-                  <div className="p-4">
-                    <button
-                      onClick={() => toggleSection('journal')}
-                      className="w-full flex items-center justify-between mb-3"
-                    >
-                      <span className="font-medium text-gray-900 flex items-center gap-2">
-                        <FaNewspaper className="text-gray-500" size={14} />
-                        Journal
-                      </span>
-                      {expandedSections.journal ? <FaChevronUp size={14} /> : <FaChevronDown size={14} />}
-                    </button>
-
-                    {expandedSections.journal && (
-                      <div className="space-y-2">
-                        <input
-                          type="text"
-                          value={filters.journal}
-                          onChange={(e) => handleFilterChange('journal', e.target.value)}
-                          placeholder="Enter journal name"
-                          className="w-full border border-gray-300 rounded px-2 py-1 text-sm"
-                        />
-                        <button
-                          onClick={applyFilters}
-                          className="w-full bg-primary-600 text-white px-3 py-1.5 rounded text-sm hover:bg-primary-700"
-                        >
-                          Apply
-                        </button>
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Author */}
-                  <div className="p-4">
-                    <button
-                      onClick={() => toggleSection('author')}
-                      className="w-full flex items-center justify-between mb-3"
-                    >
-                      <span className="font-medium text-gray-900 flex items-center gap-2">
-                        <FaUser className="text-gray-500" size={14} />
-                        Author
-                      </span>
-                      {expandedSections.author ? <FaChevronUp size={14} /> : <FaChevronDown size={14} />}
-                    </button>
-
-                    {expandedSections.author && (
-                      <div className="space-y-2">
-                        <input
-                          type="text"
-                          value={filters.author}
-                          onChange={(e) => handleFilterChange('author', e.target.value)}
-                          placeholder="Enter author name"
-                          className="w-full border border-gray-300 rounded px-2 py-1 text-sm"
-                        />
-                        <button
-                          onClick={applyFilters}
-                          className="w-full bg-primary-600 text-white px-3 py-1.5 rounded text-sm hover:bg-primary-700"
-                        >
-                          Apply
-                        </button>
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Citations */}
-                  <div className="p-4">
-                    <button
-                      onClick={() => toggleSection('citations')}
-                      className="w-full flex items-center justify-between mb-3"
-                    >
-                      <span className="font-medium text-gray-900 flex items-center gap-2">
-                        <FaQuoteRight className="text-gray-500" size={14} />
-                        Citations
-                      </span>
-                      {expandedSections.citations ? <FaChevronUp size={14} /> : <FaChevronDown size={14} />}
-                    </button>
-
-                    {expandedSections.citations && (
-                      <div className="space-y-2">
-                        <input
-                          type="number"
-                          value={filters.minCitations}
-                          onChange={(e) => handleFilterChange('minCitations', e.target.value)}
-                          placeholder="Minimum citations"
-                          min="0"
-                          className="w-full border border-gray-300 rounded px-2 py-1 text-sm"
-                        />
-                        <button
-                          onClick={applyFilters}
-                          className="w-full bg-primary-600 text-white px-3 py-1.5 rounded text-sm hover:bg-primary-700"
-                        >
-                          Apply
-                        </button>
-                      </div>
-                    )}
-                  </div>
-                </div>
+            <div style={{ background: t.cardBg, backdropFilter: 'blur(16px)', border: `1px solid ${t.cardBorder}`, borderRadius: 16, overflow: 'hidden', position: 'sticky', top: '5rem' }}>
+              <div style={{ padding: '0.85rem 1rem', borderBottom: `1px solid ${t.divider}`, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <span style={{ fontSize: '0.875rem', fontWeight: 700, color: t.textPrimary }}>Refine Results</span>
+                {activeFiltersCount > 0 && <button onClick={clearAllFilters} style={{ fontSize: '0.75rem', color: t.accentText, background: 'none', border: 'none', cursor: 'pointer', fontWeight: 600 }}>Clear all</button>}
               </div>
+              <FilterSection id="year" icon={FaCalendarAlt} label="Publication Year">
+                <div><label style={{ display: 'block', fontSize: '0.72rem', color: t.textMuted, marginBottom: '0.3rem' }}>From</label><select value={filters.yearFrom} onChange={e => handleFilterChange('yearFrom', e.target.value)} style={inputStyle}><option value="">Any year</option>{filterOptions.years.map(y => <option key={y} value={y}>{y}</option>)}</select></div>
+                <div><label style={{ display: 'block', fontSize: '0.72rem', color: t.textMuted, marginBottom: '0.3rem' }}>To</label><select value={filters.yearTo} onChange={e => handleFilterChange('yearTo', e.target.value)} style={inputStyle}><option value="">Any year</option>{filterOptions.years.map(y => <option key={y} value={y}>{y}</option>)}</select></div>
+                {applyBtn}
+              </FilterSection>
+              <FilterSection id="journal" icon={FaNewspaper} label="Journal"><input type="text" value={filters.journal} onChange={e => handleFilterChange('journal', e.target.value)} placeholder="Enter journal name" style={inputStyle} />{applyBtn}</FilterSection>
+              <FilterSection id="author" icon={FaUser} label="Author"><input type="text" value={filters.author} onChange={e => handleFilterChange('author', e.target.value)} placeholder="Enter author name" style={inputStyle} />{applyBtn}</FilterSection>
+              <FilterSection id="citations" icon={FaQuoteRight} label="Citations"><input type="number" value={filters.minCitations} onChange={e => handleFilterChange('minCitations', e.target.value)} placeholder="Minimum citations" min="0" style={inputStyle} />{applyBtn}</FilterSection>
             </div>
           )}
 
-          {/* Results Area */}
-          <div className={showFilters ? 'lg:col-span-3' : 'lg:col-span-4'}>
+          <div>
             {loading ? (
-              <div className="flex justify-center py-12">
-                <div className="text-center">
-                  <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600 mx-auto"></div>
-                  <p className="mt-4 text-gray-600">Loading papers...</p>
+              <div style={{ display: 'flex', justifyContent: 'center', padding: '4rem 0' }}>
+                <div style={{ textAlign: 'center' }}>
+                  <div style={{ width: 44, height: 44, borderRadius: '50%', border: `3px solid ${t.accentBg}`, borderTopColor: t.accent, animation: 'spin 0.8s linear infinite', margin: '0 auto 1rem' }} />
+                  <style>{`@keyframes spin{to{transform:rotate(360deg)}}`}</style>
+                  <p style={{ color: t.textMuted, fontSize: '0.875rem' }}>Loading papers…</p>
                 </div>
               </div>
             ) : papers.length === 0 ? (
-              <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-12 text-center">
-                <p className="text-gray-600 text-lg mb-4">No papers found</p>
-                <p className="text-gray-500 mb-4">Try adjusting your search or filters</p>
-                <button onClick={clearAllFilters} className="btn-primary">
-                  Clear all filters
-                </button>
+              <div style={{ background: t.cardBg, border: `1px solid ${t.cardBorder}`, borderRadius: 16, padding: '3rem', textAlign: 'center' }}>
+                <p style={{ color: t.textSecondary, fontSize: '1.05rem', marginBottom: '0.5rem' }}>No papers found</p>
+                <p style={{ color: t.textMuted, fontSize: '0.875rem', marginBottom: '1.25rem' }}>Try adjusting your search or filters</p>
+                <button onClick={clearAllFilters} className="btn-primary">Clear all filters</button>
               </div>
             ) : (
               <>
-                <div className="space-y-4">
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.85rem' }}>
                   {papers.map(paper => (
-                    <div key={paper.paper_id || paper._id} className="bg-white rounded-lg shadow-sm border border-gray-200 hover:shadow-md transition-shadow relative group">
+                    <div key={paper.paper_id || paper._id} style={{ position: 'relative' }} className="group">
                       <PaperCard paper={paper} />
-                      {/* CRUD Actions */}
-                      <div className="absolute top-4 right-4 flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                        <button
-                          onClick={(e) => { e.preventDefault(); handleEdit(paper); }}
-                          className="p-2 bg-blue-100 text-blue-600 rounded-full hover:bg-blue-200"
-                          title="Edit"
-                        >
-                          <FaEdit size={14} />
-                        </button>
-                        <button
-                          onClick={(e) => { e.preventDefault(); handleDelete(paper.paper_id || paper._id); }}
-                          className="p-2 bg-red-100 text-red-600 rounded-full hover:bg-red-200"
-                          title="Delete"
-                        >
-                          <FaTrash size={14} />
-                        </button>
+                      <div style={{ position: 'absolute', top: 12, right: 12, display: 'flex', gap: 6, opacity: 0, transition: 'opacity 0.2s ease' }} className="group-hover-actions">
+                        <button onClick={e => { e.preventDefault(); handleEdit(paper); }} style={{ width: 30, height: 30, borderRadius: 8, background: t.accentBg, border: `1px solid ${t.accentBorder}`, color: t.accentText, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }} title="Edit"><FaEdit size={12} /></button>
+                        <button onClick={e => { e.preventDefault(); handleDelete(paper.paper_id || paper._id); }} style={{ width: 30, height: 30, borderRadius: 8, background: 'rgba(239,68,68,0.15)', border: '1px solid rgba(239,68,68,0.3)', color: '#f87171', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }} title="Delete"><FaTrash size={12} /></button>
                       </div>
                     </div>
                   ))}
                 </div>
-
-                {/* Pagination */}
                 {totalPages > 1 && (
-                  <div className="mt-8 flex justify-center items-center space-x-2">
-                    <button
-                      onClick={() => setPage(p => Math.max(1, p - 1))}
-                      disabled={page === 1}
-                      className="px-4 py-2 border border-gray-300 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50"
-                    >
-                      Previous
-                    </button>
-
+                  <div style={{ marginTop: '2rem', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '0.5rem' }}>
+                    <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1} style={{ padding: '0.5rem 1rem', borderRadius: 10, background: t.cardBg, border: `1px solid ${t.cardBorder}`, color: t.textSecondary, cursor: page === 1 ? 'not-allowed' : 'pointer', opacity: page === 1 ? 0.4 : 1, fontSize: '0.85rem' }}>← Prev</button>
                     {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
-                      let pageNum;
-                      if (totalPages <= 5) {
-                        pageNum = i + 1;
-                      } else if (page <= 3) {
-                        pageNum = i + 1;
-                      } else if (page >= totalPages - 2) {
-                        pageNum = totalPages - 4 + i;
-                      } else {
-                        pageNum = page - 2 + i;
-                      }
-
-                      if (pageNum < 1 || pageNum > totalPages) return null;
-
-                      return (
-                        <button
-                          key={pageNum}
-                          onClick={() => setPage(pageNum)}
-                          className={`px-4 py-2 rounded-lg ${page === pageNum
-                            ? 'bg-primary-600 text-white'
-                            : 'border border-gray-300 hover:bg-gray-50'
-                            }`}
-                        >
-                          {pageNum}
-                        </button>
-                      );
+                      let pn; if (totalPages <= 5) pn = i + 1; else if (page <= 3) pn = i + 1; else if (page >= totalPages - 2) pn = totalPages - 4 + i; else pn = page - 2 + i;
+                      if (pn < 1 || pn > totalPages) return null;
+                      return <button key={pn} onClick={() => setPage(pn)} style={{ width: 38, height: 38, borderRadius: 10, fontSize: '0.85rem', fontWeight: 600, cursor: 'pointer', background: page === pn ? t.accentGrad : t.cardBg, border: page === pn ? 'none' : `1px solid ${t.cardBorder}`, color: page === pn ? 'white' : t.textSecondary, boxShadow: page === pn ? `0 4px 12px ${t.accentGlow}` : 'none' }}>{pn}</button>;
                     })}
-
-                    <button
-                      onClick={() => setPage(p => Math.min(totalPages, p + 1))}
-                      disabled={page === totalPages}
-                      className="px-4 py-2 border border-gray-300 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50"
-                    >
-                      Next
-                    </button>
+                    <button onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={page === totalPages} style={{ padding: '0.5rem 1rem', borderRadius: 10, background: t.cardBg, border: `1px solid ${t.cardBorder}`, color: t.textSecondary, cursor: page === totalPages ? 'not-allowed' : 'pointer', opacity: page === totalPages ? 0.4 : 1, fontSize: '0.85rem' }}>Next →</button>
                   </div>
                 )}
               </>
@@ -600,6 +209,7 @@ const Papers = () => {
           </div>
         </div>
       </div>
+      <style>{`.group:hover .group-hover-actions{opacity:1!important}`}</style>
     </div>
   );
 };

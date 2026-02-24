@@ -1,248 +1,175 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { paperApi, authorApi } from '../api/authApi';
-import { FaUser, FaSort, FaSearch, FaDatabase, FaEdit, FaTrash, FaPlus } from 'react-icons/fa';
+import { FaUser, FaSort, FaSearch, FaDatabase, FaEdit, FaTrash, FaPlus, FaTrophy } from 'react-icons/fa';
 import toast from 'react-hot-toast';
+import { useTheme } from '../context/ThemeContext';
+import { getTheme } from '../utils/theme';
+
+const rankColors = [
+  { bg: 'linear-gradient(135deg,#f59e0b,#ef4444)', glow: 'rgba(245,158,11,0.4)' },
+  { bg: 'linear-gradient(135deg,#94a3b8,#cbd5e1)', glow: 'rgba(148,163,184,0.3)' },
+  { bg: 'linear-gradient(135deg,#b45309,#d97706)', glow: 'rgba(180,83,9,0.4)' },
+];
 
 const Authors = () => {
+  const { isDark } = useTheme();
+  const t = getTheme(isDark);
   const navigate = useNavigate();
   const [authors, setAuthors] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
+  const [searchFocused, setSearchFocused] = useState(false);
   const [sortBy, setSortBy] = useState('papers');
 
-  // Fetch data (Top 100 OR Search Results)
   const fetchAuthors = async () => {
     setLoading(true);
     try {
-      let data;
-      if (searchTerm.trim()) {
-        // Server-side search
-        data = await authorApi.searchAuthors(searchTerm);
-      } else {
-        // Default: Top 100 authors
-        data = await paperApi.getAuthorStats(100);
-      }
+      const data = searchTerm.trim() ? await authorApi.searchAuthors(searchTerm) : await paperApi.getAuthorStats(100);
       setAuthors(data.authors || []);
-    } catch (error) {
-      console.error('Failed to fetch authors:', error);
-      toast.error('Failed to load authors');
-    } finally {
-      setLoading(false);
-    }
+    } catch { toast.error('Failed to load authors'); } finally { setLoading(false); }
   };
 
-  // Debounced Search Effect
-  useEffect(() => {
-    const delayDebounce = setTimeout(() => {
-      fetchAuthors();
-    }, 500);
+  useEffect(() => { const t = setTimeout(fetchAuthors, 500); return () => clearTimeout(t); }, [searchTerm]);
 
-    return () => clearTimeout(delayDebounce);
-  }, [searchTerm]);
-
-  // Client-side Sort (Derived State)
-  const sortedAuthors = useMemo(() => {
-    return [...authors].sort((a, b) => {
-      const countA = a.paper_count || a.count || 0;
-      const countB = b.paper_count || b.count || 0;
-      const nameA = a.name || a.author_name || a.author || '';
-      const nameB = b.name || b.author_name || b.author || '';
-
-      if (sortBy === 'papers') return countB - countA;
-      if (sortBy === 'name') return nameA.localeCompare(nameB);
-      return 0;
-    });
-  }, [authors, sortBy]);
+  const sortedAuthors = useMemo(() => [...authors].sort((a, b) => {
+    const cA = a.paper_count || a.count || 0, cB = b.paper_count || b.count || 0;
+    const nA = a.name || a.author_name || a.author || '', nB = b.name || b.author_name || b.author || '';
+    if (sortBy === 'papers') return cB - cA;
+    if (sortBy === 'name') return nA.localeCompare(nB);
+    return 0;
+  }), [authors, sortBy]);
 
   const handleDelete = async (id) => {
-    if (window.confirm('Are you sure you want to delete this author?')) {
-      try {
-        await authorApi.deleteAuthor(id);
-        toast.success('Author deleted');
-        fetchAuthors(); // Refresh current view
-      } catch (error) {
-        console.error('Delete author failed', error);
-        toast.error('Failed to delete author (check if papers exist)');
-      }
+    if (window.confirm('Delete this author?')) {
+      try { await authorApi.deleteAuthor(id); toast.success('Author deleted'); fetchAuthors(); }
+      catch { toast.error('Failed to delete author'); }
     }
   };
 
-  const handleEdit = (author) => {
-    navigate(`/authors/edit/${author.author_id}`);
-  };
-
-  const handleCreate = () => {
-    navigate('/authors/new');
-  };
+  const maxPapers = sortedAuthors[0]?.paper_count || sortedAuthors[0]?.count || 1;
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Header */}
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">Author Analytics</h1>
-          <p className="text-gray-600 flex items-center">
-            <FaDatabase className="mr-2 text-blue-600" />
-            Database insights: Top authors and their research contributions (MySQL)
-          </p>
-          <button onClick={handleCreate} className="mt-4 bg-green-600 text-white px-4 py-2 rounded flex items-center gap-2 hover:bg-green-700">
-            <FaPlus /> Add Author
-          </button>
-        </div>
+    <div style={{ minHeight: '100vh', background: t.pageBg, transition: 'background 0.4s ease' }}>
+      <div style={{ maxWidth: 1280, margin: '0 auto', padding: '2rem 1.5rem' }}>
 
-        {/* Search and Sort */}
-        <div className="mb-8 space-y-6">
-          <div className="relative">
-            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-              <FaSearch className="text-gray-400" />
+        {/* HEADER */}
+        <div className="animate-fade-in" style={{ marginBottom: '2rem' }}>
+          <p style={{ fontSize: '0.75rem', fontWeight: 700, color: t.accent, textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '0.4rem' }}>✦ MySQL Analytics</p>
+          <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', flexWrap: 'wrap', gap: '1rem' }}>
+            <div>
+              <h1 style={{ fontSize: 'clamp(1.5rem,3vw,2.2rem)', fontWeight: 900, background: t.accentGrad, WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text', letterSpacing: '-0.02em' }}>Author Analytics</h1>
+              <p style={{ color: t.textMuted, fontSize: '0.875rem', marginTop: '0.25rem' }}>
+                <FaDatabase size={11} style={{ display: 'inline', marginRight: 5, color: t.accent }} />Top authors and their research contributions (MySQL)
+              </p>
             </div>
-            <input
-              type="text"
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              placeholder="Search authors in database..."
-              className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent text-lg"
-            />
-          </div>
-
-          <div className="flex items-center justify-between">
-            <div className="flex items-center">
-              <FaUser className="mr-2 text-gray-500" />
-              <span className="text-sm font-medium">
-                Showing {sortedAuthors.length} authors {searchTerm && '(Search Results)'}
-              </span>
-            </div>
-            <div className="flex items-center">
-              <FaSort className="mr-2 text-gray-500" />
-              <select
-                value={sortBy}
-                onChange={(e) => setSortBy(e.target.value)}
-                className="border border-gray-300 rounded-md px-3 py-2 text-sm focus:ring-2 focus:ring-primary-500"
-              >
-                <option value="papers">Most Papers</option>
-                <option value="name">Name A-Z</option>
-              </select>
-            </div>
+            <button onClick={() => navigate('/authors/new')}
+              style={{ display: 'inline-flex', alignItems: 'center', gap: 7, padding: '0.6rem 1.1rem', borderRadius: 11, background: t.accentGrad, border: 'none', color: 'white', fontWeight: 700, fontSize: '0.875rem', cursor: 'pointer', boxShadow: `0 4px 14px ${t.accentGlow}`, transition: 'all 0.2s ease' }}
+              onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-2px)'; }}
+              onMouseLeave={e => { e.currentTarget.style.transform = 'translateY(0)'; }}
+            ><FaPlus size={12} /> Add Author</button>
           </div>
         </div>
 
-        {/* Authors Table */}
+        {/* SEARCH + SORT */}
+        <div style={{ display: 'flex', gap: '1rem', marginBottom: '1.5rem', flexWrap: 'wrap' }}>
+          <div style={{ flex: 1, minWidth: 240, position: 'relative' }}>
+            <FaSearch size={14} style={{ position: 'absolute', left: 14, top: '50%', transform: 'translateY(-50%)', color: searchFocused ? t.accent : t.textMuted, transition: 'color 0.2s ease' }} />
+            <input type="text" value={searchTerm} onChange={e => setSearchTerm(e.target.value)} onFocus={() => setSearchFocused(true)} onBlur={() => setSearchFocused(false)} placeholder="Search authors in database..."
+              style={{ width: '100%', padding: '0.8rem 1rem 0.8rem 2.6rem', borderRadius: 12, background: searchFocused ? t.cardHover : t.inputBg, border: `1px solid ${searchFocused ? t.accentBorder : t.inputBorder}`, color: t.inputColor, fontSize: '0.9rem', outline: 'none', boxShadow: searchFocused ? `0 0 0 3px ${t.accentBg}` : 'none', transition: 'all 0.3s ease' }} />
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <FaSort size={13} style={{ color: t.textMuted }} />
+            <select value={sortBy} onChange={e => setSortBy(e.target.value)} style={{ padding: '0.8rem 0.9rem', borderRadius: 12, background: t.inputBg, border: `1px solid ${t.inputBorder}`, color: t.textSecondary, fontSize: '0.875rem', outline: 'none', cursor: 'pointer' }}>
+              <option value="papers">Most Papers</option>
+              <option value="name">Name A-Z</option>
+            </select>
+          </div>
+        </div>
+
+        <div style={{ marginBottom: '1rem' }}>
+          <span style={{ fontSize: '0.82rem', color: t.textMuted }}>Showing <span style={{ fontWeight: 700, color: t.textPrimary }}>{sortedAuthors.length}</span> authors{searchTerm && <span style={{ color: t.accentText }}> (search results)</span>}</span>
+        </div>
+
+        {/* TABLE */}
         {loading ? (
-          <div className="flex justify-center py-12">
-            <div className="text-center">
-              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600 mx-auto"></div>
-              <p className="mt-4 text-gray-600">Loading authors...</p>
+          <div style={{ display: 'flex', justifyContent: 'center', padding: '4rem 0' }}>
+            <div style={{ textAlign: 'center' }}>
+              <div style={{ width: 44, height: 44, borderRadius: '50%', border: `3px solid ${t.accentBg}`, borderTopColor: t.accent, animation: 'spin 0.8s linear infinite', margin: '0 auto 1rem' }} />
+              <style>{`@keyframes spin{to{transform:rotate(360deg)}}`}</style>
+              <p style={{ color: t.textMuted, fontSize: '0.875rem' }}>Loading authors…</p>
             </div>
           </div>
         ) : sortedAuthors.length === 0 ? (
-          <div className="text-center py-12 bg-white rounded-lg shadow-sm border border-gray-200">
-            <p className="text-gray-600 text-lg">No authors found matching "{searchTerm}"</p>
-            {searchTerm && (
-              <button
-                onClick={() => setSearchTerm('')}
-                className="mt-2 text-primary-600 hover:text-primary-800 font-medium"
-              >
-                Clear search
-              </button>
-            )}
+          <div style={{ background: t.cardBg, border: `1px solid ${t.cardBorder}`, borderRadius: 16, padding: '3rem', textAlign: 'center' }}>
+            <p style={{ color: t.textSecondary, fontSize: '1.05rem', marginBottom: '0.5rem' }}>No authors found matching "{searchTerm}"</p>
+            {searchTerm && <button onClick={() => setSearchTerm('')} style={{ color: t.accentText, background: 'none', border: 'none', cursor: 'pointer', fontWeight: 600 }}>Clear search</button>}
           </div>
         ) : (
-          <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden mb-8">
-            <div className="overflow-x-auto">
-              <table className="min-w-full divide-y divide-gray-200">
-                <thead className="bg-gray-50">
-                  <tr>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Rank
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Author Name
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Papers Published
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Author ID
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Actions
-                    </th>
-                  </tr>
-                </thead>
-                <tbody className="bg-white divide-y divide-gray-200">
-                  {sortedAuthors.map((author, index) => (
-                    <tr key={author.author_id || index} className="hover:bg-gray-50 transition-colors">
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="text-sm font-medium text-gray-900">
-                          #{index + 1}
-                        </div>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="flex items-center">
-                          <div className="flex-shrink-0 h-10 w-10 flex items-center justify-center bg-primary-100 rounded-full">
-                            <FaUser className="text-primary-600" />
-                          </div>
-                          <div className="ml-4">
-                            <div className="text-sm font-medium text-gray-900">
-                              {author.name || author.author_name || author.author || 'Unknown'}
-                            </div>
-                          </div>
-                        </div>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="text-sm text-gray-900 font-medium">
-                          {author.paper_count || author.count || 0}
-                        </div>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="text-sm text-gray-500">
-                          {author.author_id || 'N/A'}
-                        </div>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                        <button onClick={() => handleEdit(author)} className="text-blue-600 hover:text-blue-900 mr-3">
-                          <FaEdit />
-                        </button>
-                        <button onClick={() => handleDelete(author.author_id)} className="text-red-600 hover:text-red-900">
-                          <FaTrash />
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+          <div className="animate-fade-in" style={{ background: t.cardBg, backdropFilter: 'blur(16px)', border: `1px solid ${t.cardBorder}`, borderRadius: 18, overflow: 'hidden', marginBottom: '2rem' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: '60px 1fr 160px 120px 120px', padding: '0.75rem 1.25rem', borderBottom: `1px solid ${t.divider}`, background: t.tableHeaderBg }}>
+              {['Rank', 'Author Name', 'Papers Published', 'Author ID', 'Actions'].map(h => (
+                <span key={h} style={{ fontSize: '0.7rem', fontWeight: 700, color: t.textMuted, textTransform: 'uppercase', letterSpacing: '0.07em' }}>{h}</span>
+              ))}
             </div>
+            {sortedAuthors.map((author, index) => {
+              const paperCount = author.paper_count || author.count || 0;
+              const name = author.name || author.author_name || author.author || 'Unknown';
+              const barWidth = Math.max(4, (paperCount / maxPapers) * 100);
+              const rc = rankColors[index] || null;
+              return (
+                <div key={author.author_id || index}
+                  style={{ display: 'grid', gridTemplateColumns: '60px 1fr 160px 120px 120px', padding: '0.9rem 1.25rem', borderBottom: `1px solid ${t.tableDivider}`, alignItems: 'center', transition: 'background 0.2s ease' }}
+                  onMouseEnter={e => { e.currentTarget.style.background = t.tableRowHover; }}
+                  onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; }}
+                >
+                  <div>
+                    {index < 3 ? (
+                      <div style={{ width: 28, height: 28, borderRadius: 8, background: rc.bg, display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: `0 2px 8px ${rc.glow}` }}><FaTrophy size={12} color="white" /></div>
+                    ) : (
+                      <span style={{ fontSize: '0.82rem', fontWeight: 700, color: t.textMuted }}>#{index + 1}</span>
+                    )}
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                    <div style={{ width: 36, height: 36, borderRadius: 10, background: t.accentGrad, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}><FaUser size={14} color="white" /></div>
+                    <span style={{ fontSize: '0.875rem', fontWeight: 600, color: t.textPrimary }}>{name}</span>
+                  </div>
+                  <div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                      <span style={{ fontSize: '0.875rem', fontWeight: 700, color: t.accentText, minWidth: 32 }}>{paperCount}</span>
+                      <div style={{ flex: 1, height: 5, background: t.cardBorder, borderRadius: 999, overflow: 'hidden' }}>
+                        <div style={{ width: `${barWidth}%`, height: '100%', background: t.accentGrad, borderRadius: 999 }} />
+                      </div>
+                    </div>
+                  </div>
+                  <span style={{ fontSize: '0.78rem', color: t.textMuted, fontFamily: 'monospace' }}>{author.author_id || 'N/A'}</span>
+                  <div style={{ display: 'flex', gap: 6 }}>
+                    <button onClick={() => navigate(`/authors/edit/${author.author_id}`)} style={{ width: 30, height: 30, borderRadius: 8, background: t.accentBg, border: `1px solid ${t.accentBorder}`, color: t.accentText, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><FaEdit size={12} /></button>
+                    <button onClick={() => handleDelete(author.author_id)} style={{ width: 30, height: 30, borderRadius: 8, background: 'rgba(239,68,68,0.12)', border: '1px solid rgba(239,68,68,0.25)', color: '#f87171', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><FaTrash size={12} /></button>
+                  </div>
+                </div>
+              );
+            })}
           </div>
         )}
 
-        {/* Analytics Summary */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mt-8">
-          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-            <h3 className="text-lg font-semibold mb-4 flex items-center">
-              <FaDatabase className="mr-2 text-blue-600" />
-              Database Query Info
-            </h3>
-            <div className="space-y-3">
-              <div>
-                <p className="text-sm text-gray-500">Query Mode</p>
-                <p className="text-sm font-medium text-blue-600">
-                  {searchTerm ? 'Server-Side Search (Indexed)' : 'Top Authors Aggregation'}
-                </p>
-              </div>
-              <div>
-                <p className="text-sm text-gray-500 mb-1">SQL Query</p>
-                <div className="bg-gray-50 p-2 rounded text-xs font-mono overflow-x-auto">
-                  {searchTerm ?
-                    `SELECT a.*, COUNT(pa.paper_id) ... WHERE name LIKE %${searchTerm}%` :
-                    `SELECT a.name, COUNT(pa.paper_id) ... ORDER BY count DESC LIMIT 100`
-                  }
-                </div>
+        {/* DB QUERY INFO */}
+        <div style={{ background: t.accentBg, backdropFilter: 'blur(16px)', border: `1px solid ${t.accentBorder}`, borderRadius: 16, padding: '1.25rem 1.5rem' }}>
+          <h3 style={{ fontSize: '0.9rem', fontWeight: 700, color: t.accentText, marginBottom: '0.85rem', display: 'flex', alignItems: 'center', gap: 8 }}>
+            <FaDatabase size={14} style={{ color: t.accent }} /> Database Query Info
+          </h3>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(200px,1fr))', gap: '1rem' }}>
+            <div>
+              <p style={{ fontSize: '0.75rem', color: t.textMuted, marginBottom: '0.25rem' }}>Query Mode</p>
+              <p style={{ fontSize: '0.85rem', fontWeight: 600, color: t.accentText }}>{searchTerm ? 'Server-Side Search (Indexed)' : 'Top Authors Aggregation'}</p>
+            </div>
+            <div>
+              <p style={{ fontSize: '0.75rem', color: t.textMuted, marginBottom: '0.25rem' }}>SQL Query</p>
+              <div style={{ background: t.codeBg, padding: '0.5rem 0.75rem', borderRadius: 8, fontFamily: 'monospace', fontSize: '0.75rem', color: t.codeText, overflowX: 'auto' }}>
+                {searchTerm ? `SELECT a.*, COUNT(pa.paper_id) ... WHERE name LIKE %${searchTerm}%` : `SELECT a.name, COUNT(pa.paper_id) ... ORDER BY count DESC LIMIT 100`}
               </div>
             </div>
           </div>
-
-          {/* ... Other cards can remain static or basic ... */}
         </div>
       </div>
     </div>
