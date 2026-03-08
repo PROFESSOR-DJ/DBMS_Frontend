@@ -8,14 +8,21 @@ import {
   FaLink,
   FaArrowLeft,
   FaQuoteRight,
-  FaTag
+  FaTag,
+  FaCheckCircle,
+  FaVirus,
+  FaDatabase,
 } from 'react-icons/fa';
+import { useTheme } from '../context/ThemeContext';
+import { getTheme } from '../utils/theme';
 
 const PaperDetails = () => {
   const { id } = useParams();
+  const { isDark } = useTheme();
+  const t = getTheme(isDark);
   const [paper, setPaper] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [relatedPapers, setRelatedPapers] = useState([]);
+  const [error, setError] = useState(null);
 
   useEffect(() => {
     fetchPaperDetails();
@@ -23,220 +30,197 @@ const PaperDetails = () => {
 
   const fetchPaperDetails = async () => {
     setLoading(true);
+    setError(null);
     try {
-      // Mock data - replace with actual API call
-      const mockPaper = {
-        _id: id,
-        title: "Advanced Database Management Systems for Research Data",
-        abstract: "This paper presents a comprehensive study of modern database management systems optimized for handling large-scale research data. We discuss various architectures, indexing strategies, and query optimization techniques that significantly improve performance in academic research environments.",
-        authors: ["Dr. John Smith", "Prof. Jane Doe", "Dr. Robert Johnson", "Prof. Maria Garcia"],
-        journal: "Nature Database Systems",
-        year: 2023,
-        volume: "45",
-        issue: "3",
-        pages: "234-256",
-        doi: "10.1000/xyz123",
-        citation_count: 89,
-        keywords: ["Database", "Research", "Management", "Optimization", "Indexing"],
-        source: "Nature Publishing Group",
-        created_at: "2023-05-15T10:30:00Z",
-        references: [
-          "Smith, J. et al. Database Systems 2021",
-          "Johnson, R. Data Management 2022",
-          "Brown, M. Query Optimization 2020"
-        ]
-      };
-
-      const mockRelated = Array.from({ length: 3 }, (_, i) => ({
-        _id: `related-${i}`,
-        title: `Related Paper ${i + 1} on Database Systems`,
-        authors: ['Author A', 'Author B'],
-        journal: 'Journal of Databases',
-        year: 2022 + i,
-        citation_count: Math.floor(Math.random() * 50),
-      }));
-
-      setPaper(mockPaper);
-      setRelatedPapers(mockRelated);
-
-      setRelatedPapers(mockRelated);
-
-      // Uncomment for real API:
-      const data = await paperApi.getPaperById(id);
-      if (data) {
-        setPaper(data);
-        // If you have backend for related papers, fetch here
+      const response = await paperApi.getPaperById(id);
+      // API returns { paper: {...}, source: '...', reason: '...' }
+      // or sometimes just the paper object directly
+      const paperData = response?.paper || response;
+      if (paperData && (paperData.title || paperData.paper_id)) {
+        setPaper(paperData);
+      } else {
+        setError('Paper not found');
       }
-      // Fetch related papers...
-    } catch (error) {
-      console.error('Failed to fetch paper details:', error);
-      // Fallback or error handling
+    } catch (err) {
+      console.error('Failed to fetch paper details:', err);
+      setError('Failed to load paper details');
     } finally {
       setLoading(false);
     }
   };
 
-  // Helper to ensure authors is an array
   const getAuthorsArray = (authors) => {
     if (!authors) return [];
     if (Array.isArray(authors)) return authors;
-    if (typeof authors === 'string') return authors.split(', ');
+    if (typeof authors === 'string') return authors.split(', ').map(a => a.trim()).filter(Boolean);
     return [];
   };
 
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600 mx-auto"></div>
-          <p className="mt-4 text-gray-600">Loading paper details...</p>
-        </div>
+  /* ── Loading ── */
+  if (loading) return (
+    <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: t.pageBg }}>
+      <div style={{ textAlign: 'center' }}>
+        <div style={{ width: 48, height: 48, borderRadius: '50%', border: `3px solid ${t.accentBg}`, borderTopColor: t.accent, animation: 'spin 0.8s linear infinite', margin: '0 auto 1rem' }} />
+        <style>{`@keyframes spin{to{transform:rotate(360deg)}}`}</style>
+        <p style={{ color: t.textMuted, fontSize: '0.9rem' }}>Loading paper details…</p>
       </div>
-    );
-  }
+    </div>
+  );
 
-  if (!paper) {
-    return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="text-center">
-          <h1 className="text-2xl font-bold text-gray-900 mb-4">Paper Not Found</h1>
-          <Link to="/papers" className="btn-primary inline-flex items-center">
-            <FaArrowLeft className="mr-2" />
-            Back to Papers
-          </Link>
-        </div>
+  /* ── Error / Not Found ── */
+  if (error || !paper) return (
+    <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: t.pageBg }}>
+      <div style={{ textAlign: 'center' }}>
+        <h1 style={{ fontSize: '1.5rem', fontWeight: 700, color: t.textPrimary, marginBottom: '1rem' }}>
+          {error || 'Paper Not Found'}
+        </h1>
+        <Link to="/papers" style={{
+          display: 'inline-flex', alignItems: 'center', gap: 8,
+          padding: '0.6rem 1.2rem', borderRadius: 10,
+          background: t.accentGrad, color: 'white', textDecoration: 'none',
+          fontWeight: 600, fontSize: '0.875rem',
+        }}>
+          <FaArrowLeft size={13} /> Back to Papers
+        </Link>
       </div>
-    );
-  }
+    </div>
+  );
+
+  const authors = getAuthorsArray(paper.authors);
+  const cardStyle = {
+    background: t.cardBg,
+    backdropFilter: 'blur(16px)',
+    border: `1px solid ${t.cardBorder}`,
+    borderRadius: 18,
+    padding: '1.5rem',
+    boxShadow: t.cardShadow,
+    marginBottom: '1.5rem',
+  };
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Back Navigation */}
-        <div className="mb-6">
-          <Link
-            to="/papers"
-            className="inline-flex items-center text-primary-600 hover:text-primary-800"
-          >
-            <FaArrowLeft className="mr-2" />
-            Back to Papers
+    <div style={{ minHeight: '100vh', background: t.pageBg, transition: 'background 0.4s ease' }}>
+      <div style={{ maxWidth: 1100, margin: '0 auto', padding: '2rem 1.5rem' }}>
+
+        {/* Back */}
+        <div style={{ marginBottom: '1.5rem' }}>
+          <Link to="/papers" style={{
+            display: 'inline-flex', alignItems: 'center', gap: 7,
+            fontSize: '0.875rem', fontWeight: 600, color: t.accentText, textDecoration: 'none',
+          }}>
+            <FaArrowLeft size={12} /> Back to Papers
           </Link>
         </div>
 
-        {/* Paper Header */}
-        <div className="card mb-8">
-          <h1 className="text-3xl font-bold text-gray-900 mb-4">{paper.title}</h1>
+        {/* Title Card */}
+        <div style={{ ...cardStyle, borderLeft: `4px solid ${t.accent}` }}>
+          <div style={{ marginBottom: '0.5rem', display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+            {paper.is_covid19 && (
+              <span style={{ fontSize: '0.72rem', fontWeight: 700, color: '#fca5a5', background: 'rgba(239,68,68,0.12)', padding: '0.2rem 0.65rem', borderRadius: 999, border: '1px solid rgba(239,68,68,0.3)', display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                <FaVirus size={10} /> COVID-19
+              </span>
+            )}
+            {paper.has_full_text && (
+              <span style={{ fontSize: '0.72rem', fontWeight: 700, color: '#6ee7b7', background: 'rgba(16,185,129,0.12)', padding: '0.2rem 0.65rem', borderRadius: 999, border: '1px solid rgba(16,185,129,0.25)', display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                <FaCheckCircle size={10} /> Full Text
+              </span>
+            )}
+          </div>
 
-          <div className="flex flex-wrap gap-6 mb-6">
-            <div className="flex items-center text-gray-600">
-              <FaCalendar className="mr-2" />
-              <span>Year: {paper.year}</span>
-            </div>
-            <div className="flex items-center text-gray-600">
-              <FaQuoteRight className="mr-2" />
-              <span>Citations: {paper.citation_count}</span>
-            </div>
+          <h1 style={{ fontSize: 'clamp(1.2rem,2.5vw,1.7rem)', fontWeight: 800, color: t.textPrimary, lineHeight: 1.4, marginBottom: '1.25rem' }}>
+            {paper.title}
+          </h1>
+
+          {/* Meta row */}
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '1.25rem' }}>
+            {paper.year && (
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: '0.875rem', color: t.textSecondary }}>
+                <FaCalendar size={13} style={{ color: '#10b981' }} />
+                <span>{paper.year}</span>
+              </div>
+            )}
+            {paper.journal && (
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: '0.875rem', color: t.textSecondary }}>
+                <FaNewspaper size={13} style={{ color: '#a855f7' }} />
+                <span>{paper.journal}</span>
+              </div>
+            )}
+            {paper.citation_count !== undefined && (
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: '0.875rem', color: t.textSecondary }}>
+                <FaQuoteRight size={13} style={{ color: '#f59e0b' }} />
+                <span>{paper.citation_count} citations</span>
+              </div>
+            )}
             {paper.doi && (
-              <div className="flex items-center text-gray-600">
-                <FaLink className="mr-2" />
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: '0.875rem' }}>
+                <FaLink size={13} style={{ color: t.accent }} />
                 <a
                   href={`https://doi.org/${paper.doi}`}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="text-primary-600 hover:text-primary-800"
+                  style={{ color: t.accentText, textDecoration: 'none', fontWeight: 500 }}
                 >
-                  DOI: {paper.doi}
+                  {paper.doi}
                 </a>
               </div>
             )}
           </div>
-
-          {/* Authors */}
-          <div className="mb-6">
-            <h3 className="text-lg font-semibold mb-2 flex items-center">
-              <FaUser className="mr-2" />
-              Authors
-            </h3>
-            <div className="flex flex-wrap gap-2">
-              {getAuthorsArray(paper.authors).map((author, index) => (
-                <span
-                  key={index}
-                  className="px-3 py-1 bg-gray-100 text-gray-700 rounded-full text-sm"
-                >
-                  {author}
-                </span>
-              ))}
-            </div>
-          </div>
-
-          {/* Journal Info */}
-          <div className="mb-6">
-            <h3 className="text-lg font-semibold mb-2 flex items-center">
-              <FaNewspaper className="mr-2" />
-              Publication Details
-            </h3>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div>
-                <p className="text-sm text-gray-500">Journal</p>
-                <p className="font-medium">{paper.journal}</p>
-              </div>
-              {paper.volume && (
-                <div>
-                  <p className="text-sm text-gray-500">Volume</p>
-                  <p className="font-medium">{paper.volume}</p>
-                </div>
-              )}
-              {paper.issue && (
-                <div>
-                  <p className="text-sm text-gray-500">Issue</p>
-                  <p className="font-medium">{paper.issue}</p>
-                </div>
-              )}
-              {paper.pages && (
-                <div>
-                  <p className="text-sm text-gray-500">Pages</p>
-                  <p className="font-medium">{paper.pages}</p>
-                </div>
-              )}
-              <div>
-                <p className="text-sm text-gray-500">Source</p>
-                <p className="font-medium">{paper.source}</p>
-              </div>
-              <div>
-                <p className="text-sm text-gray-500">Added to DB</p>
-                <p className="font-medium">
-                  {new Date(paper.created_at).toLocaleDateString()}
-                </p>
-              </div>
-            </div>
-          </div>
         </div>
 
-        {/* Abstract and Details */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          <div className="lg:col-span-2 space-y-8">
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 300px', gap: '1.5rem', alignItems: 'start' }}>
+          {/* Left column */}
+          <div>
+            {/* Authors */}
+            {authors.length > 0 && (
+              <div style={cardStyle}>
+                <h3 style={{ fontSize: '1rem', fontWeight: 700, color: t.textPrimary, marginBottom: '1rem', display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <FaUser size={14} style={{ color: t.accent }} /> Authors
+                </h3>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem' }}>
+                  {authors.map((author, i) => (
+                    <span key={i} style={{
+                      padding: '0.3rem 0.85rem',
+                      borderRadius: 999,
+                      fontSize: '0.82rem',
+                      fontWeight: 500,
+                      background: t.accentBg,
+                      color: t.accentText,
+                      border: `1px solid ${t.accentBorder}`,
+                    }}>
+                      {author}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
+
             {/* Abstract */}
-            <div className="card">
-              <h3 className="text-xl font-semibold mb-4">Abstract</h3>
-              <p className="text-gray-700 leading-relaxed whitespace-pre-line">
-                {paper.abstract}
-              </p>
-            </div>
+            {paper.abstract && (
+              <div style={cardStyle}>
+                <h3 style={{ fontSize: '1rem', fontWeight: 700, color: t.textPrimary, marginBottom: '1rem' }}>Abstract</h3>
+                <p style={{ fontSize: '0.9rem', color: t.textSecondary, lineHeight: 1.75 }}>
+                  {paper.abstract}
+                </p>
+              </div>
+            )}
 
             {/* Keywords */}
             {paper.keywords && paper.keywords.length > 0 && (
-              <div className="card">
-                <h3 className="text-xl font-semibold mb-4 flex items-center">
-                  <FaTag className="mr-2" />
-                  Keywords
+              <div style={cardStyle}>
+                <h3 style={{ fontSize: '1rem', fontWeight: 700, color: t.textPrimary, marginBottom: '1rem', display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <FaTag size={13} style={{ color: t.accent }} /> Keywords
                 </h3>
-                <div className="flex flex-wrap gap-2">
-                  {paper.keywords.map((keyword, index) => (
-                    <span
-                      key={index}
-                      className="px-3 py-1 bg-primary-100 text-primary-800 rounded-full text-sm"
-                    >
-                      {keyword}
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem' }}>
+                  {paper.keywords.map((kw, i) => (
+                    <span key={i} style={{
+                      padding: '0.25rem 0.75rem',
+                      borderRadius: 999,
+                      fontSize: '0.78rem',
+                      fontWeight: 500,
+                      background: 'rgba(168,85,247,0.12)',
+                      color: '#d8b4fe',
+                      border: '1px solid rgba(168,85,247,0.25)',
+                    }}>
+                      {kw}
                     </span>
                   ))}
                 </div>
@@ -244,48 +228,46 @@ const PaperDetails = () => {
             )}
           </div>
 
-          {/* Sidebar */}
-          <div className="space-y-6">
-            {/* Related Papers */}
-            <div className="card">
-              <h3 className="text-lg font-semibold mb-4">Related Papers</h3>
-              <div className="space-y-4">
-                {relatedPapers.map((related) => (
-                  <Link
-                    key={related._id}
-                    to={`/papers/${related._id}`}
-                    className="block p-3 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors"
-                  >
-                    <h4 className="font-medium text-gray-900 hover:text-primary-700 line-clamp-2">
-                      {related.title}
-                    </h4>
-                    <div className="mt-2 text-sm text-gray-600">
-                      <span>{related.journal}, {related.year}</span>
-                      {related.citation_count > 0 && (
-                        <span className="ml-2">({related.citation_count} citations)</span>
-                      )}
-                    </div>
-                  </Link>
+          {/* Right sidebar */}
+          <div>
+            {/* Publication Details */}
+            <div style={cardStyle}>
+              <h3 style={{ fontSize: '0.95rem', fontWeight: 700, color: t.textPrimary, marginBottom: '1rem', display: 'flex', alignItems: 'center', gap: 8 }}>
+                <FaNewspaper size={13} style={{ color: '#a855f7' }} /> Publication Details
+              </h3>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                {[
+                  ['Journal', paper.journal],
+                  ['Year', paper.year],
+                  ['Source', paper.source],
+                  ['DOI', paper.doi],
+                  ['Paper ID', paper.paper_id],
+                ].filter(([, v]) => v).map(([label, value]) => (
+                  <div key={label} style={{ borderBottom: `1px solid ${t.divider}`, paddingBottom: '0.6rem' }}>
+                    <p style={{ fontSize: '0.72rem', color: t.textMuted, marginBottom: '0.2rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>{label}</p>
+                    <p style={{ fontSize: '0.85rem', fontWeight: 600, color: t.textSecondary, wordBreak: 'break-all' }}>{String(value)}</p>
+                  </div>
                 ))}
               </div>
             </div>
 
-            {/* Database Info */}
-            <div className="card">
-              <h3 className="text-lg font-semibold mb-4">Database Information</h3>
-              <div className="space-y-3">
-                <div>
-                  <p className="text-sm text-gray-500">Document ID</p>
-                  <p className="font-mono text-sm">{paper._id}</p>
-                </div>
-                <div>
-                  <p className="text-sm text-gray-500">Indexed Fields</p>
-                  <p className="text-sm">Title, Abstract, Authors, Journal, Keywords</p>
-                </div>
-                <div>
-                  <p className="text-sm text-gray-500">Query Performance</p>
-                  <p className="text-sm">Indexed lookup: ~2ms</p>
-                </div>
+            {/* DB Info */}
+            <div style={{ ...cardStyle, background: t.accentBg, border: `1px solid ${t.accentBorder}` }}>
+              <h3 style={{ fontSize: '0.9rem', fontWeight: 700, color: t.accentText, marginBottom: '0.85rem', display: 'flex', alignItems: 'center', gap: 8 }}>
+                <FaDatabase size={13} style={{ color: t.accent }} /> Database Info
+              </h3>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.55rem' }}>
+                {[
+                  ['Source', 'MongoDB'],
+                  ['Has Full Text', paper.has_full_text ? 'Yes' : 'No'],
+                  ['COVID-19 Related', paper.is_covid19 ? 'Yes' : 'No'],
+                  ['Authors Count', authors.length],
+                ].map(([k, v]) => (
+                  <div key={k} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.8rem' }}>
+                    <span style={{ color: t.textMuted }}>{k}</span>
+                    <span style={{ fontWeight: 600, color: t.accentText }}>{String(v)}</span>
+                  </div>
+                ))}
               </div>
             </div>
           </div>
