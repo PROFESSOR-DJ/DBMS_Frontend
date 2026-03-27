@@ -24,19 +24,53 @@ const Dashboard = () => {
     try {
       setLoading(true);
       const data = await statsApi.getOverview();
+      console.log('[Dashboard] raw response:', JSON.stringify(data).substring(0, 800));
+
+      // papers_per_year: MongoDB getPapersPerYear() returns { _id: year, count, covidCount }
+      const rawPPY = data.analytics?.papers_per_year || data.papers_per_year || [];
+      const papersPerYear = rawPPY
+        .map(i => ({ year: i._id ?? i.publish_year ?? i.year, count: i.count ?? i.paper_count ?? 0 }))
+        .filter(i => i.year != null && i.count > 0)
+        .sort((a, b) => a.year - b.year);
+
+      // top_journals: MongoDB getTopJournals() returns { _id, journal, count, avgCitations }
+      const rawJournals = data.analytics?.top_journals || data.top_journals || [];
+      const topJournals = rawJournals
+        .map(i => ({ name: i.journal ?? i._id ?? i.name, value: i.count ?? i.paper_count ?? 0 }))
+        .filter(i => i.name)
+        .slice(0, 5);
+
+      // top_authors: MongoDB getTopAuthors() returns { _id, author, count, avgCitations }
+      const rawAuthors = data.analytics?.top_authors || data.top_authors || [];
+      const topAuthors = rawAuthors
+        .map(i => ({ author: i.author ?? i._id ?? i.name, papers: i.count ?? i.paper_count ?? 0 }))
+        .filter(i => i.author)
+        .slice(0, 10);
+
+      // totals: try multiple possible paths
+      const totalPapers = data.database_overview?.mysql?.total_papers
+        ?? data.database_overview?.mongodb?.total_papers
+        ?? data.stats?.totalPapers ?? data.total_papers ?? 0;
+      const uniqueAuthors = data.database_overview?.mysql?.total_authors
+        ?? data.stats?.uniqueAuthorCount ?? data.unique_authors ?? 0;
+      const totalJournals = data.database_overview?.mongodb?.unique_journals
+        ?? data.stats?.uniqueJournalCount ?? data.unique_journals ?? 0;
+
+      console.log('[Dashboard] mapped — PPY:', papersPerYear.length, 'journals:', topJournals.length, 'authors:', topAuthors.length);
+
       setStats({
-        totalPapers: data.database_overview?.mysql?.total_papers || 0,
-        uniqueAuthors: data.database_overview?.mysql?.total_authors || 0,
-        totalJournals: data.database_overview?.mongodb?.unique_journals || 0,
-        papersPerYear: data.analytics?.papers_per_year?.map(i => ({ year: i.publish_year, count: i.count })) || [],
-        topJournals: data.analytics?.top_journals?.map(i => ({ name: i.journal, value: i.count })).slice(0, 5) || [],
-        topAuthors: data.analytics?.top_authors?.map(i => ({ author: i.name, papers: i.paper_count })).slice(0, 5) || [],
+        totalPapers,
+        uniqueAuthors,
+        totalJournals,
+        papersPerYear,
+        topJournals,
+        topAuthors,
         dataSources: {
           mysql: data.database_overview?.mysql?.role || 'SQL Database',
           mongodb: data.database_overview?.mongodb?.role || 'MongoDB Database',
         }
       });
-    } catch { toast.error('Failed to load dashboard data'); }
+    } catch (err) { console.error('[Dashboard] fetch error:', err); toast.error('Failed to load dashboard data'); }
     finally { setLoading(false); }
   };
 
