@@ -20,6 +20,7 @@ import AddAuthor from './pages/AddAuthor';
 import EditAuthor from './pages/EditAuthor';
 import Journals from './pages/Journals';
 import Profile from './pages/Profile';
+import GraphExplorer from './pages/GraphExplorer';
 
 // Protected Route Component
 const ProtectedRoute = ({ children }) => {
@@ -133,6 +134,11 @@ const AppContent = () => {
         <Route path="/journals" element={
           <ProtectedRoute>
             <Journals />
+          </ProtectedRoute>
+        } />
+        <Route path="/graph" element={
+          <ProtectedRoute>
+            <GraphExplorer />
           </ProtectedRoute>
         } />
         <Route path="/profile" element={

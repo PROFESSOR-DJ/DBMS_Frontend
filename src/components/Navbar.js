@@ -4,7 +4,7 @@ import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
 import {
   FaSearch, FaUser, FaChartBar, FaSignOutAlt, FaHome,
-  FaDatabase, FaBars, FaTimes, FaSun, FaMoon
+  FaDatabase, FaBars, FaTimes, FaSun, FaMoon, FaProjectDiagram
 } from 'react-icons/fa';
 
 const Navbar = () => {
@@ -26,9 +26,10 @@ const Navbar = () => {
 
   const navLinks = [
     { to: '/dashboard', icon: FaHome, label: 'Dashboard' },
-    { to: '/papers', icon: FaSearch, label: 'Papers' },
-    { to: '/authors', icon: FaUser, label: 'Authors' },
-    { to: '/journals', icon: FaChartBar, label: 'Journals' },
+    { to: '/papers', icon: FaSearch, label: 'Papers'},
+    { to: '/authors', icon: FaUser, label: 'Authors'},
+    { to: '/journals', icon: FaChartBar, label: 'Journals'},
+    { to: '/graph',     icon: FaProjectDiagram,  label: 'Network'},
   ];
 
   /* ── theme-aware values ── */
