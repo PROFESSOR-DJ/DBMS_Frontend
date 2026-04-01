@@ -1,18 +1,16 @@
+// App wires frontend routes, providers, and protected page access.
 import React from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { Toaster } from 'react-hot-toast';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { ThemeProvider } from './context/ThemeContext';
 import Navbar from './components/Navbar';
-
-// Pages
 import Login from './pages/Login';
 import Register from './pages/Register';
 import ForgotPassword from './pages/ForgotPassword';
 import Dashboard from './pages/Dashboard';
 import Papers from './pages/Papers';
 import PaperDetails from './pages/PaperDetails';
-
 import AddPaper from './pages/AddPaper';
 import EditPaper from './pages/EditPaper';
 import Authors from './pages/Authors';
@@ -21,174 +19,133 @@ import EditAuthor from './pages/EditAuthor';
 import Journals from './pages/Journals';
 import Profile from './pages/Profile';
 import GraphExplorer from './pages/GraphExplorer';
-
-// Protected Route Component
-const ProtectedRoute = ({ children }) => {
-  const { user, loading } = useAuth();
-
+const ProtectedRoute = ({
+  children
+}) => {
+  const {
+    user,
+    loading
+  } = useAuth();
   if (loading) {
-    return (
-      <div className="flex items-center justify-center min-h-screen">
+    return <div className="flex items-center justify-center min-h-screen">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600 mx-auto"></div>
           <p className="mt-4 text-gray-600">Loading...</p>
         </div>
-      </div>
-    );
+      </div>;
   }
-
   if (!user) {
     return <Navigate to="/login" />;
   }
-
   return children;
 };
-
-// Public Only Route Component
-const PublicOnlyRoute = ({ children }) => {
-  const { user, loading } = useAuth();
-
+const PublicOnlyRoute = ({
+  children
+}) => {
+  const {
+    user,
+    loading
+  } = useAuth();
   if (loading) {
-    return (
-      <div className="flex items-center justify-center min-h-screen">
+    return <div className="flex items-center justify-center min-h-screen">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600 mx-auto"></div>
           <p className="mt-4 text-gray-600">Loading...</p>
         </div>
-      </div>
-    );
+      </div>;
   }
-
   if (user) {
     return <Navigate to="/dashboard" />;
   }
-
   return children;
 };
-
 const AppContent = () => {
-  const { user } = useAuth();
-
-  return (
-    <>
+  const {
+    user
+  } = useAuth();
+  return <>
       {user && <Navbar />}
       <Routes>
-        {/* Public Routes */}
-        <Route path="/login" element={
-          <PublicOnlyRoute>
+        {}
+        <Route path="/login" element={<PublicOnlyRoute>
             <Login />
-          </PublicOnlyRoute>
-        } />
-        <Route path="/register" element={
-          <PublicOnlyRoute>
+          </PublicOnlyRoute>} />
+        <Route path="/register" element={<PublicOnlyRoute>
             <Register />
-          </PublicOnlyRoute>
-        } />
-        <Route path="/forgot-password" element={
-          <PublicOnlyRoute>
+          </PublicOnlyRoute>} />
+        <Route path="/forgot-password" element={<PublicOnlyRoute>
             <ForgotPassword />
-          </PublicOnlyRoute>
-        } />
+          </PublicOnlyRoute>} />
 
-        {/* Protected Routes */}
-        <Route path="/dashboard" element={
-          <ProtectedRoute>
+        {}
+        <Route path="/dashboard" element={<ProtectedRoute>
             <Dashboard />
-          </ProtectedRoute>
-        } />
-        <Route path="/papers" element={
-          <ProtectedRoute>
+          </ProtectedRoute>} />
+        <Route path="/papers" element={<ProtectedRoute>
             <Papers />
-          </ProtectedRoute>
-        } />
-        <Route path="/papers/new" element={
-          <ProtectedRoute>
+          </ProtectedRoute>} />
+        <Route path="/papers/new" element={<ProtectedRoute>
             <AddPaper />
-          </ProtectedRoute>
-        } />
-        <Route path="/papers/edit/:id" element={
-          <ProtectedRoute>
+          </ProtectedRoute>} />
+        <Route path="/papers/edit/:id" element={<ProtectedRoute>
             <EditPaper />
-          </ProtectedRoute>
-        } />
-        <Route path="/papers/:id" element={
-          <ProtectedRoute>
+          </ProtectedRoute>} />
+        <Route path="/papers/:id" element={<ProtectedRoute>
             <PaperDetails />
-          </ProtectedRoute>
-        } />
-        <Route path="/authors" element={
-          <ProtectedRoute>
+          </ProtectedRoute>} />
+        <Route path="/authors" element={<ProtectedRoute>
             <Authors />
-          </ProtectedRoute>
-        } />
-        <Route path="/authors/new" element={
-          <ProtectedRoute>
+          </ProtectedRoute>} />
+        <Route path="/authors/new" element={<ProtectedRoute>
             <AddAuthor />
-          </ProtectedRoute>
-        } />
-        <Route path="/authors/edit/:id" element={
-          <ProtectedRoute>
+          </ProtectedRoute>} />
+        <Route path="/authors/edit/:id" element={<ProtectedRoute>
             <EditAuthor />
-          </ProtectedRoute>
-        } />
-        <Route path="/journals" element={
-          <ProtectedRoute>
+          </ProtectedRoute>} />
+        <Route path="/journals" element={<ProtectedRoute>
             <Journals />
-          </ProtectedRoute>
-        } />
-        <Route path="/graph" element={
-          <ProtectedRoute>
+          </ProtectedRoute>} />
+        <Route path="/graph" element={<ProtectedRoute>
             <GraphExplorer />
-          </ProtectedRoute>
-        } />
-        <Route path="/profile" element={
-          <ProtectedRoute>
+          </ProtectedRoute>} />
+        <Route path="/profile" element={<ProtectedRoute>
             <Profile />
-          </ProtectedRoute>
-        } />
+          </ProtectedRoute>} />
 
-        {/* Default Route */}
+        {}
         <Route path="/" element={<Navigate to="/dashboard" />} />
 
-        {/* Catch-all Route */}
+        {}
         <Route path="*" element={<Navigate to="/dashboard" />} />
       </Routes>
-    </>
-  );
+    </>;
 };
-
 function App() {
-  return (
-    <Router>
+  return <Router>
       <ThemeProvider>
         <AuthProvider>
-          <Toaster
-            position="top-right"
-            toastOptions={{
-              duration: 4000,
-              style: {
-                background: '#363636',
-                color: '#fff',
-              },
-              success: {
-                duration: 3000,
-                style: {
-                  background: '#10b981',
-                },
-              },
-              error: {
-                duration: 4000,
-                style: {
-                  background: '#ef4444',
-                },
-              },
-            }}
-          />
+          <Toaster position="top-right" toastOptions={{
+          duration: 4000,
+          style: {
+            background: '#363636',
+            color: '#fff'
+          },
+          success: {
+            duration: 3000,
+            style: {
+              background: '#10b981'
+            }
+          },
+          error: {
+            duration: 4000,
+            style: {
+              background: '#ef4444'
+            }
+          }
+        }} />
           <AppContent />
         </AuthProvider>
       </ThemeProvider>
-    </Router>
-  );
+    </Router>;
 }
-
 export default App;

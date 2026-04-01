@@ -1,18 +1,16 @@
+// ForgotPassword renders the forgot password page.
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { authApi } from '../api/authApi';
 import { FaEnvelope, FaCheckCircle } from 'react-icons/fa';
-
 const ForgotPassword = () => {
   const [email, setEmail] = useState('');
   const [loading, setLoading] = useState(false);
   const [submitted, setSubmitted] = useState(false);
   const navigate = useNavigate();
-
-  const handleSubmit = async (e) => {
+  const handleSubmit = async e => {
     e.preventDefault();
     setLoading(true);
-    
     try {
       await authApi.forgotPassword(email);
       setSubmitted(true);
@@ -25,10 +23,8 @@ const ForgotPassword = () => {
       setLoading(false);
     }
   };
-
   if (submitted) {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-primary-50 to-gray-100 flex items-center justify-center p-4">
+    return <div className="min-h-screen bg-gradient-to-br from-primary-50 to-gray-100 flex items-center justify-center p-4">
         <div className="max-w-md w-full">
           <div className="card text-center">
             <div className="flex justify-center mb-6">
@@ -49,12 +45,9 @@ const ForgotPassword = () => {
             </Link>
           </div>
         </div>
-      </div>
-    );
+      </div>;
   }
-
-  return (
-    <div className="min-h-screen bg-gradient-to-br from-primary-50 to-gray-100 flex items-center justify-center p-4">
+  return <div className="min-h-screen bg-gradient-to-br from-primary-50 to-gray-100 flex items-center justify-center p-4">
       <div className="max-w-md w-full">
         <div className="card">
           <div className="text-center mb-8">
@@ -73,22 +66,11 @@ const ForgotPassword = () => {
                 <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                   <FaEnvelope className="text-gray-400" />
                 </div>
-                <input
-                  type="email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  className="input-field pl-10"
-                  placeholder="you@example.com"
-                  required
-                />
+                <input type="email" value={email} onChange={e => setEmail(e.target.value)} className="input-field pl-10" placeholder="you@example.com" required />
               </div>
             </div>
 
-            <button
-              type="submit"
-              disabled={loading}
-              className="w-full btn-primary py-3"
-            >
+            <button type="submit" disabled={loading} className="w-full btn-primary py-3">
               {loading ? 'Sending...' : 'Send Reset Instructions'}
             </button>
           </form>
@@ -96,18 +78,13 @@ const ForgotPassword = () => {
           <div className="mt-6 text-center">
             <p className="text-gray-600">
               Remember your password?{' '}
-              <Link
-                to="/login"
-                className="text-primary-600 hover:text-primary-800 font-medium"
-              >
+              <Link to="/login" className="text-primary-600 hover:text-primary-800 font-medium">
                 Sign in
               </Link>
             </p>
           </div>
         </div>
       </div>
-    </div>
-  );
+    </div>;
 };
-
 export default ForgotPassword;

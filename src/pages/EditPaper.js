@@ -1,64 +1,55 @@
+// EditPaper renders the edit paper page.
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { paperApi } from '../api/authApi';
 import PaperForm from '../components/PaperForm';
 import toast from 'react-hot-toast';
 import { FaArrowLeft } from 'react-icons/fa';
-
 const EditPaper = () => {
-    const { id } = useParams();
-    const navigate = useNavigate();
-    const [paper, setPaper] = useState(null);
-    const [loading, setLoading] = useState(true);
-
-    useEffect(() => {
-        fetchPaper();
-    }, [id]);
-
-    const fetchPaper = async () => {
-        try {
-            const data = await paperApi.getPaperById(id);
-            if (data && (data.paper || data)) {
-                setPaper(data.paper || data);
-            } else {
-                toast.error('Paper not found');
-                navigate('/papers');
-            }
-        } catch (error) {
-            console.error('Failed to fetch paper:', error);
-            toast.error('Failed to load paper details');
-            navigate('/papers');
-        } finally {
-            setLoading(false);
-        }
-    };
-
-    const handleSubmit = async (paperData) => {
-        try {
-            await paperApi.updatePaper(id, paperData);
-            toast.success('Paper updated successfully');
-            navigate('/papers');
-        } catch (error) {
-            console.error('Failed to update paper:', error);
-            toast.error('Failed to update paper');
-        }
-    };
-
-    if (loading) {
-        return (
-            <div className="flex justify-center items-center min-h-screen bg-gray-50">
-                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600"></div>
-            </div>
-        );
+  const {
+    id
+  } = useParams();
+  const navigate = useNavigate();
+  const [paper, setPaper] = useState(null);
+  const [loading, setLoading] = useState(true);
+  useEffect(() => {
+    fetchPaper();
+  }, [id]);
+  const fetchPaper = async () => {
+    try {
+      const data = await paperApi.getPaperById(id);
+      if (data && (data.paper || data)) {
+        setPaper(data.paper || data);
+      } else {
+        toast.error('Paper not found');
+        navigate('/papers');
+      }
+    } catch (error) {
+      console.error('Failed to fetch paper:', error);
+      toast.error('Failed to load paper details');
+      navigate('/papers');
+    } finally {
+      setLoading(false);
     }
-
-    return (
-        <div className="min-h-screen bg-gray-50 py-8 px-4">
+  };
+  const handleSubmit = async paperData => {
+    try {
+      await paperApi.updatePaper(id, paperData);
+      toast.success('Paper updated successfully');
+      navigate('/papers');
+    } catch (error) {
+      console.error('Failed to update paper:', error);
+      toast.error('Failed to update paper');
+    }
+  };
+  if (loading) {
+    return <div className="flex justify-center items-center min-h-screen bg-gray-50">
+                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600"></div>
+            </div>;
+  }
+  return <div className="min-h-screen bg-gray-50 py-8 px-4">
             <div className="max-w-3xl mx-auto">
-                <button
-                    onClick={() => navigate('/papers')}
-                    className="flex items-center text-gray-600 hover:text-gray-900 mb-6 transition-colors"
-                >
+                <button onClick={() => navigate('/papers')} className="flex items-center text-gray-600 hover:text-gray-900 mb-6 transition-colors">
                     <FaArrowLeft className="mr-2" /> Back to Papers
                 </button>
 
@@ -68,17 +59,10 @@ const EditPaper = () => {
                         <p className="text-gray-500 mt-1">Update publication details</p>
                     </div>
                     <div className="p-0">
-                        <PaperForm
-                            paper={paper}
-                            onSubmit={handleSubmit}
-                            onCancel={() => navigate('/papers')}
-                            isPage={true}
-                        />
+                        <PaperForm paper={paper} onSubmit={handleSubmit} onCancel={() => navigate('/papers')} isPage={true} />
                     </div>
                 </div>
             </div>
-        </div>
-    );
+        </div>;
 };
-
 export default EditPaper;
