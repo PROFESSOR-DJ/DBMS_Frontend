@@ -2,7 +2,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { paperApi, authorApi } from '../api/authApi';
-import { FaUser, FaSort, FaSearch, FaDatabase, FaEdit, FaTrash, FaPlus, FaTrophy } from 'react-icons/fa';
+import { FaUser, FaSort, FaSearch, FaEdit, FaTrash, FaPlus, FaTrophy } from 'react-icons/fa';
 import toast from 'react-hot-toast';
 import { useTheme } from '../context/ThemeContext';
 import { getTheme } from '../utils/theme';
@@ -78,15 +78,7 @@ const Authors = () => {
         <div className="animate-fade-in" style={{
         marginBottom: '2rem'
       }}>
-          <p style={{
-          fontSize: '0.75rem',
-          fontWeight: 700,
-          color: t.accent,
-          textTransform: 'uppercase',
-          letterSpacing: '0.1em',
-          marginBottom: '0.4rem'
-        }}>✦ MySQL Analytics</p>
-          <div style={{
+<div style={{
           display: 'flex',
           alignItems: 'flex-start',
           justifyContent: 'space-between',
@@ -103,17 +95,7 @@ const Authors = () => {
               backgroundClip: 'text',
               letterSpacing: '-0.02em'
             }}>Author Analytics</h1>
-              <p style={{
-              color: t.textMuted,
-              fontSize: '0.875rem',
-              marginTop: '0.25rem'
-            }}>
-                <FaDatabase size={11} style={{
-                display: 'inline',
-                marginRight: 5,
-                color: t.accent
-              }} />Top authors and their research contributions (MySQL)
-              </p>
+              <p style={{ color: t.textMuted, fontSize: '0.875rem', marginTop: '0.25rem' }}>Top authors and their research contributions</p>
             </div>
             <button onClick={() => navigate('/authors/new')} style={{
             display: 'inline-flex',
@@ -157,7 +139,7 @@ const Authors = () => {
             color: searchFocused ? t.accent : t.textMuted,
             transition: 'color 0.2s ease'
           }} />
-            <input type="text" value={searchTerm} onChange={e => setSearchTerm(e.target.value)} onFocus={() => setSearchFocused(true)} onBlur={() => setSearchFocused(false)} placeholder="Search authors in database..." style={{
+            <input type="text" value={searchTerm} onChange={e => setSearchTerm(e.target.value)} onFocus={() => setSearchFocused(true)} onBlur={() => setSearchFocused(false)} placeholder="Search authors..." style={{
             width: '100%',
             padding: '0.8rem 1rem 0.8rem 2.6rem',
             borderRadius: 12,
@@ -393,66 +375,10 @@ const Authors = () => {
                 </div>;
         })}
           </div>}
-
-        {}
-        <div style={{
-        background: t.accentBg,
-        backdropFilter: 'blur(16px)',
-        border: `1px solid ${t.accentBorder}`,
-        borderRadius: 16,
-        padding: '1.25rem 1.5rem'
-      }}>
-          <h3 style={{
-          fontSize: '0.9rem',
-          fontWeight: 700,
-          color: t.accentText,
-          marginBottom: '0.85rem',
-          display: 'flex',
-          alignItems: 'center',
-          gap: 8
-        }}>
-            <FaDatabase size={14} style={{
-            color: t.accent
-          }} /> Database Query Info
-          </h3>
-          <div style={{
-          display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fit,minmax(200px,1fr))',
-          gap: '1rem'
-        }}>
-            <div>
-              <p style={{
-              fontSize: '0.75rem',
-              color: t.textMuted,
-              marginBottom: '0.25rem'
-            }}>Query Mode</p>
-              <p style={{
-              fontSize: '0.85rem',
-              fontWeight: 600,
-              color: t.accentText
-            }}>{searchTerm ? 'Server-Side Search (Indexed)' : 'Top Authors Aggregation'}</p>
-            </div>
-            <div>
-              <p style={{
-              fontSize: '0.75rem',
-              color: t.textMuted,
-              marginBottom: '0.25rem'
-            }}>SQL Query</p>
-              <div style={{
-              background: t.codeBg,
-              padding: '0.5rem 0.75rem',
-              borderRadius: 8,
-              fontFamily: 'monospace',
-              fontSize: '0.75rem',
-              color: t.codeText,
-              overflowX: 'auto'
-            }}>
-                {searchTerm ? `SELECT a.*, COUNT(pa.paper_id) ... WHERE name LIKE %${searchTerm}%` : `SELECT a.name, COUNT(pa.paper_id) ... ORDER BY count DESC LIMIT 100`}
-              </div>
-            </div>
-          </div>
-        </div>
       </div>
     </div>;
 };
 export default Authors;
+
+
+

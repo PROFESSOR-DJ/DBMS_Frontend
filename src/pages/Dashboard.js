@@ -19,8 +19,7 @@ const Dashboard = () => {
     totalJournals: 0,
     papersPerYear: [],
     topJournals: [],
-    topAuthors: [],
-    dataSources: {}
+    topAuthors: []
   });
   const [loading, setLoading] = useState(true);
   useEffect(() => {
@@ -56,11 +55,7 @@ const Dashboard = () => {
         totalJournals,
         papersPerYear,
         topJournals,
-        topAuthors,
-        dataSources: {
-          mysql: data.database_overview?.mysql?.role || 'SQL Database',
-          mongodb: data.database_overview?.mongodb?.role || 'MongoDB Database'
-        }
+        topAuthors
       });
     } catch (err) {
       console.error('[Dashboard] fetch error:', err);
@@ -184,7 +179,7 @@ const Dashboard = () => {
           color: t.textMuted,
           fontSize: '0.95rem',
           maxWidth: 520
-        }}>Hybrid Database Architecture — MySQL for relationships, MongoDB for search &amp; analytics</p>
+        }}>Unified analytics and discovery across your research data</p>
         </div>
 
         {}
@@ -235,32 +230,32 @@ const Dashboard = () => {
         <div className="animate-fade-in" style={{
         marginBottom: '2.5rem'
       }}>
-          <SectionLabel icon={FaDatabase} text="Hybrid Database Architecture" />
+          <SectionLabel icon={FaDatabase} text="Platform Overview" />
           <div style={{
           display: 'grid',
           gridTemplateColumns: 'repeat(auto-fit,minmax(300px,1fr))',
           gap: '1.5rem'
         }}>
             {[{
-            label: 'MySQL Database',
-            sub: 'Core Transactional Data',
+            label: 'Core Platform',
+            sub: 'Structured research records',
             grad: 'linear-gradient(135deg,#06b6d4,#0ea5e9)',
             glow: 'rgba(6,182,212,0.4)',
             border: 'rgba(6,182,212,0.2)',
             borderH: 'rgba(6,182,212,0.4)',
             glowH: 'rgba(6,182,212,0.1)',
-            rows: [['Purpose', 'Normalized Relationships'], ['Strengths', 'ACID, Constraints'], ['Used For', 'Users, Author-Paper Links']],
-            stats: [['Total Papers', stats.totalPapers], ['Total Authors', stats.uniqueAuthors]]
+            rows: [['Purpose', 'Reliable structured data'], ['Strengths', 'Consistency and integrity'], ['Used For', 'Users and publication links']],
+            stats: [['Total Papers', stats.totalPapers], ['Active Authors', stats.uniqueAuthors]]
           }, {
-            label: 'MongoDB Database',
-            sub: 'Search & Analytics Engine',
+            label: 'Discovery Platform',
+            sub: 'Fast exploration and insights',
             grad: 'linear-gradient(135deg,#10b981,#06b6d4)',
             glow: 'rgba(16,185,129,0.4)',
             border: 'rgba(16,185,129,0.2)',
             borderH: 'rgba(16,185,129,0.4)',
             glowH: 'rgba(16,185,129,0.1)',
-            rows: [['Purpose', 'Full-Text Search'], ['Strengths', 'Flexible, Scalable'], ['Used For', 'Metadata, Aggregations']],
-            stats: [['Unique Journals', stats.totalJournals], ['Indexed Fields', 'Title, Abstract, Year']]
+            rows: [['Purpose', 'Research discovery'], ['Strengths', 'Flexible and scalable'], ['Used For', 'Metadata and analytics']],
+            stats: [['Unique Journals', stats.totalJournals], ['Coverage', 'Title, abstract, year']]
           }].map(({
             label,
             sub,
@@ -378,19 +373,19 @@ const Dashboard = () => {
               {[{
               label: 'Browse All Papers',
               href: '/papers',
-              tag: 'MongoDB',
+              tag: 'Papers',
               icon: FaFileAlt,
               color: t.accent
             }, {
               label: 'View Author Statistics',
               href: '/authors',
-              tag: 'MySQL',
+              tag: 'Authors',
               icon: FaUsers,
               color: '#a855f7'
             }, {
               label: 'Explore Journals',
               href: '/journals',
-              tag: 'MongoDB',
+              tag: 'Papers',
               icon: FaNewspaper,
               color: '#10b981'
             }].map(({
@@ -471,29 +466,29 @@ const Dashboard = () => {
             fontWeight: 700,
             color: t.textPrimary,
             marginBottom: '1.25rem'
-          }}>Polyglot Persistence</h3>
+          }}>Platform Highlights</h3>
             <div style={{
             display: 'flex',
             flexDirection: 'column',
             gap: '0.65rem'
           }}>
               {[{
-              title: 'MySQL Queries',
-              desc: 'Optimized with heuristic: GROUP BY before JOIN',
+              title: 'Fast Insights',
+              desc: 'Interactive views for key trends',
               bg: t.accentBg,
               border: t.accentBorder,
               tc: t.accentText,
               dc: t.accent
             }, {
-              title: 'MongoDB Queries',
-              desc: 'Aggregation pipelines with compound indexes',
+              title: 'Search Experience',
+              desc: 'Quickly find papers by topic and author',
               bg: 'rgba(16,185,129,0.10)',
               border: 'rgba(16,185,129,0.2)',
               tc: '#6ee7b7',
               dc: '#34d399'
             }, {
-              title: 'Hybrid Approach',
-              desc: 'Right database for the right job',
+              title: 'Unified Workflow',
+              desc: 'One interface for analysis and exploration',
               bg: 'rgba(168,85,247,0.10)',
               border: 'rgba(168,85,247,0.2)',
               tc: '#d8b4fe',
@@ -530,3 +525,5 @@ const Dashboard = () => {
     </div>;
 };
 export default Dashboard;
+
+

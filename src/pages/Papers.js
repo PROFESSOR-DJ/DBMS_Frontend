@@ -3,7 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { paperApi } from '../api/authApi';
 import PaperCard from '../components/PaperCard';
-import { FaFilter, FaSort, FaSearch, FaTimes, FaChevronDown, FaChevronUp, FaCalendarAlt, FaNewspaper, FaUser, FaQuoteRight, FaDatabase, FaPlus, FaEdit, FaTrash } from 'react-icons/fa';
+import { FaFilter, FaSort, FaSearch, FaTimes, FaChevronDown, FaChevronUp, FaCalendarAlt, FaNewspaper, FaUser, FaQuoteRight, FaPlus, FaEdit, FaTrash } from 'react-icons/fa';
 import toast from 'react-hot-toast';
 import { useTheme } from '../context/ThemeContext';
 import { getTheme } from '../utils/theme';
@@ -216,15 +216,7 @@ const Papers = () => {
         <div className="animate-fade-in" style={{
         marginBottom: '1.75rem'
       }}>
-          <p style={{
-          fontSize: '0.75rem',
-          fontWeight: 700,
-          color: t.accent,
-          textTransform: 'uppercase',
-          letterSpacing: '0.1em',
-          marginBottom: '0.4rem'
-        }}>✦ MongoDB Full-Text Search</p>
-          <div style={{
+<div style={{
           display: 'flex',
           alignItems: 'flex-start',
           justifyContent: 'space-between',
@@ -241,17 +233,7 @@ const Papers = () => {
               backgroundClip: 'text',
               letterSpacing: '-0.02em'
             }}>Research Papers</h1>
-              <p style={{
-              color: t.textMuted,
-              fontSize: '0.875rem',
-              marginTop: '0.25rem'
-            }}>
-                <FaDatabase size={11} style={{
-                display: 'inline',
-                marginRight: 5,
-                color: '#10b981'
-              }} />Powered by MongoDB full-text search
-              </p>
+              <p style={{ color: t.textMuted, fontSize: '0.875rem', marginTop: '0.25rem' }}>Browse and explore research papers</p>
             </div>
             <button onClick={() => navigate('/papers/new')} style={{
             display: 'inline-flex',
@@ -643,3 +625,6 @@ const Papers = () => {
     </div>;
 };
 export default Papers;
+
+
+

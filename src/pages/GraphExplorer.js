@@ -219,14 +219,14 @@ const GraphExplorer = () => {
           fontWeight: 700,
           color: t.textPrimary,
           marginBottom: '0.75rem'
-        }}>Neo4j Not Connected</h2>
+        }}>Service Not Connected</h2>
           <p style={{
           fontSize: '0.875rem',
           color: t.textMuted,
           lineHeight: 1.7,
           marginBottom: '1.5rem'
         }}>
-            The Neo4j graph database is not reachable. Make sure it is running on <code style={{
+            The graph service is not reachable. Please verify the connection at <code style={{
             color: '#a5b4fc',
             background: 'rgba(99,102,241,0.12)',
             padding: '0.1rem 0.4rem',
@@ -252,7 +252,7 @@ const GraphExplorer = () => {
             marginBottom: '0.5rem',
             textTransform: 'uppercase',
             letterSpacing: '0.05em'
-          }}>Required .env keys</p>
+          }}>Required configuration</p>
             <pre style={{
             fontFamily: 'monospace',
             fontSize: '0.78rem',
@@ -290,7 +290,7 @@ NEO4J_PASSWORD=your_password`}
           <style>{`@keyframes spin{to{transform:rotate(360deg)}}`}</style>
           <p style={{
           color: t.textMuted
-        }}>Connecting to Neo4j…</p>
+        }}>Connecting...</p>
         </div>
       </div>;
   }
@@ -316,7 +316,7 @@ NEO4J_PASSWORD=your_password`}
           textTransform: 'uppercase',
           letterSpacing: '0.1em',
           marginBottom: '0.4rem'
-        }}>✦ Neo4j Graph Database</p>
+        }}>✦ Graph Insights</p>
           <div style={{
           display: 'flex',
           alignItems: 'flex-start',
@@ -369,7 +369,7 @@ NEO4J_PASSWORD=your_password`}
               background: '#10b981',
               display: 'inline-block'
             }} />
-              Neo4j Connected
+              Connected
             </div>
           </div>
         </div>
@@ -747,7 +747,7 @@ NEO4J_PASSWORD=your_password`}
             color: t.textMuted,
             marginBottom: '1rem'
           }}>
-                Search for an author to see their co-authors and papers from the graph database.
+                Search for an author to see their co-authors and papers.
               </p>
               <div style={{
             position: 'relative'
@@ -938,7 +938,7 @@ NEO4J_PASSWORD=your_password`}
                     {networkData.coAuthors.length === 0 ? <p style={{
                 color: t.textMuted,
                 fontSize: '0.875rem'
-              }}>No co-authors found in the graph.</p> : <div style={{
+              }}>No co-authors found.</p> : <div style={{
                 maxHeight: 340,
                 overflowY: 'auto',
                 display: 'flex',
@@ -1165,3 +1165,4 @@ NEO4J_PASSWORD=your_password`}
     </div>;
 };
 export default GraphExplorer;
+

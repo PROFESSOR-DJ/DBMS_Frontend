@@ -1,7 +1,7 @@
 // Journals renders the journals page.
 import React, { useState, useEffect } from 'react';
 import api from '../api/authApi';
-import { FaNewspaper, FaChartBar, FaSort, FaDatabase, FaSearch } from 'react-icons/fa';
+import { FaNewspaper, FaChartBar, FaSort, FaSearch } from 'react-icons/fa';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from 'recharts';
 import toast from 'react-hot-toast';
 import { useTheme } from '../context/ThemeContext';
@@ -107,17 +107,7 @@ const Journals = () => {
         <div className="animate-fade-in" style={{
         marginBottom: '2rem'
       }}>
-          <p style={{
-          fontSize: '0.75rem',
-          fontWeight: 700,
-          color: '#10b981',
-          textTransform: 'uppercase',
-          letterSpacing: '0.1em',
-          marginBottom: '0.4rem'
-        }}>
-            ✦ MongoDB Aggregation
-          </p>
-          <div style={{
+<div style={{
           display: 'flex',
           alignItems: 'flex-start',
           justifyContent: 'space-between',
@@ -136,18 +126,7 @@ const Journals = () => {
             }}>
                 Journal Analytics
               </h1>
-              <p style={{
-              color: t.textMuted,
-              fontSize: '0.875rem',
-              marginTop: '0.25rem'
-            }}>
-                <FaDatabase size={11} style={{
-                display: 'inline',
-                marginRight: 5,
-                color: '#10b981'
-              }} />
-                Publication venues ranked by paper count — powered by MongoDB
-              </p>
+              <p style={{ color: t.textMuted, fontSize: '0.875rem', marginTop: '0.25rem' }}>Publication venues ranked by paper count</p>
             </div>
             <div style={{
             display: 'flex',
@@ -271,7 +250,7 @@ const Journals = () => {
               fontSize: '0.75rem',
               color: t.textMuted,
               marginTop: 2
-            }}>Papers indexed in MongoDB per venue</p>
+            }}>Publication counts per venue</p>
               </div>
             </div>
             <div style={{
@@ -523,117 +502,10 @@ const Journals = () => {
         })}
           </div>}
 
-        {}
-        <div className="animate-fade-in" style={{
-        display: 'grid',
-        gridTemplateColumns: 'repeat(auto-fit,minmax(300px,1fr))',
-        gap: '1.5rem'
-      }}>
-          <div style={{
-          background: 'rgba(16,185,129,0.06)',
-          border: '1px solid rgba(16,185,129,0.2)',
-          borderRadius: 16,
-          padding: '1.25rem 1.5rem'
-        }}>
-            <h3 style={{
-            fontSize: '0.9rem',
-            fontWeight: 700,
-            color: '#6ee7b7',
-            marginBottom: '1rem',
-            display: 'flex',
-            alignItems: 'center',
-            gap: 8
-          }}>
-              <FaDatabase size={14} style={{
-              color: '#10b981'
-            }} /> Aggregation Pipeline
-            </h3>
-            <pre style={{
-            background: 'rgba(0,0,0,0.3)',
-            padding: '0.75rem',
-            borderRadius: 10,
-            fontFamily: 'monospace',
-            fontSize: '0.72rem',
-            color: '#6ee7b7',
-            overflowX: 'auto',
-            margin: 0
-          }}>
-            {`[
-  { $group: {
-      _id: "$journal",
-      count: { $sum: 1 }
-  }},
-  { $sort:  { count: -1 } },
-  { $limit: 200 }
-]`}
-            </pre>
-          </div>
-
-          <div style={{
-          background: t.cardBg,
-          border: `1px solid ${t.cardBorder}`,
-          borderRadius: 16,
-          padding: '1.25rem 1.5rem'
-        }}>
-            <h3 style={{
-            fontSize: '0.9rem',
-            fontWeight: 700,
-            color: t.textPrimary,
-            marginBottom: '1rem'
-          }}>
-              Why MongoDB for Journals?
-            </h3>
-            <div style={{
-            display: 'flex',
-            flexDirection: 'column',
-            gap: '0.65rem'
-          }}>
-              {[{
-              title: 'Single-pass Aggregation',
-              desc: '$group + $sort in one pipeline — no JOIN overhead like SQL',
-              bg: 'rgba(16,185,129,0.10)',
-              border: 'rgba(16,185,129,0.2)',
-              tc: '#6ee7b7'
-            }, {
-              title: 'Flexible Schema',
-              desc: 'journal field lives on every document, no separate table needed',
-              bg: 'rgba(99,102,241,0.10)',
-              border: 'rgba(99,102,241,0.2)',
-              tc: '#a5b4fc'
-            }, {
-              title: 'idx_journal Index',
-              desc: 'Dedicated index makes $group scans fast at 200k+ documents',
-              bg: 'rgba(168,85,247,0.10)',
-              border: 'rgba(168,85,247,0.2)',
-              tc: '#d8b4fe'
-            }].map(({
-              title,
-              desc,
-              bg,
-              border,
-              tc
-            }) => <div key={title} style={{
-              padding: '0.7rem 0.9rem',
-              background: bg,
-              border: `1px solid ${border}`,
-              borderRadius: 10
-            }}>
-                  <p style={{
-                fontSize: '0.82rem',
-                fontWeight: 600,
-                color: tc,
-                marginBottom: '0.2rem'
-              }}>{title}</p>
-                  <p style={{
-                fontSize: '0.75rem',
-                color: t.textMuted
-              }}>{desc}</p>
-                </div>)}
-            </div>
-          </div>
-        </div>
-
       </div>
     </div>;
 };
 export default Journals;
+
+
+

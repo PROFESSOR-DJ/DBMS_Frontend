@@ -194,7 +194,7 @@ const Profile = () => {
 
             {}
             <div className="card">
-              <h3 className="text-lg font-semibold mb-4">Database Access</h3>
+              <h3 className="text-lg font-semibold mb-4">Account Access</h3>
               <div className="space-y-3">
                 <div>
                   <p className="text-sm text-gray-500">User Role</p>
@@ -205,7 +205,7 @@ const Profile = () => {
                   <p className="font-medium">Full Read Access</p>
                 </div>
                 <div>
-                  <p className="text-sm text-gray-500">API Queries</p>
+                  <p className="text-sm text-gray-500">API Usage</p>
                   <p className="font-medium">Unlimited</p>
                 </div>
                 <div>
@@ -225,3 +225,4 @@ const Profile = () => {
     </div>;
 };
 export default Profile;
+

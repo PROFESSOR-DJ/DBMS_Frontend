@@ -2,7 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { paperApi } from '../api/authApi';
-import { FaCalendar, FaUser, FaNewspaper, FaLink, FaArrowLeft, FaQuoteRight, FaTag, FaCheckCircle, FaVirus, FaDatabase } from 'react-icons/fa';
+import { FaCalendar, FaUser, FaNewspaper, FaLink, FaArrowLeft, FaQuoteRight, FaTag, FaCheckCircle, FaVirus } from 'react-icons/fa';
 import { useTheme } from '../context/ThemeContext';
 import { getTheme } from '../utils/theme';
 const PaperDetails = () => {
@@ -323,7 +323,7 @@ const PaperDetails = () => {
                   color: t.textMuted,
                   fontSize: '0.78rem',
                   opacity: 0.7
-                }}>This paper does not have an abstract stored in the database.</p>
+                }}>This paper does not have an abstract stored.</p>
                   </div>
                 </div>}
             </div>
@@ -376,7 +376,7 @@ const PaperDetails = () => {
               flexDirection: 'column',
               gap: '0.75rem'
             }}>
-                {[['Journal', paper.journal], ['Year', paper.year], ['Source', paper.source], ['DOI', paper.doi], ['Paper ID', paper.paper_id]].filter(([, v]) => v !== undefined && v !== null && v !== '').map(([label, value]) => <div key={label} style={{
+                {[['Journal', paper.journal], ['Year', paper.year], ['DOI', paper.doi], ['Paper ID', paper.paper_id]].filter(([, v]) => v !== undefined && v !== null && v !== '').map(([label, value]) => <div key={label} style={{
                 borderBottom: '1px solid ' + t.divider,
                 paddingBottom: '0.6rem'
               }}>
@@ -396,46 +396,10 @@ const PaperDetails = () => {
                     </div>)}
               </div>
             </div>
-
-            <div style={{
-            ...card,
-            background: t.accentBg,
-            border: '1px solid ' + t.accentBorder
-          }}>
-              <h3 style={{
-              fontSize: '0.9rem',
-              fontWeight: 700,
-              color: t.accentText,
-              marginBottom: '0.85rem',
-              display: 'flex',
-              alignItems: 'center',
-              gap: 8
-            }}><FaDatabase size={13} style={{
-                color: t.accent
-              }} /> Database Info</h3>
-              <div style={{
-              display: 'flex',
-              flexDirection: 'column',
-              gap: '0.55rem'
-            }}>
-                {[['Source DB', 'MongoDB'], ['Has Full Text', paper.has_full_text ? 'Yes' : 'No'], ['COVID-19', paper.is_covid19 ? 'Yes' : 'No'], ['Authors Count', authors.length], ['Citation Count', paper.citation_count ?? 'N/A']].map(([k, v]) => <div key={k} style={{
-                display: 'flex',
-                justifyContent: 'space-between',
-                fontSize: '0.8rem'
-              }}>
-                      <span style={{
-                  color: t.textMuted
-                }}>{k}</span>
-                      <span style={{
-                  fontWeight: 600,
-                  color: t.accentText
-                }}>{String(v)}</span>
-                    </div>)}
-              </div>
-            </div>
           </div>
         </div>
       </div>
     </div>;
 };
 export default PaperDetails;
+
