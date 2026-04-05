@@ -6,6 +6,7 @@ const PaperForm = ({
   onSubmit,
   onCancel
 }) => {
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [formData, setFormData] = useState({
     title: '',
     abstract: '',
@@ -42,15 +43,21 @@ const PaperForm = ({
       [name]: type === 'checkbox' ? checked : value
     }));
   };
-  const handleSubmit = e => {
+  const handleSubmit = async e => {
     e.preventDefault();
+    if (isSubmitting) return;
     if (!formData.title.trim()) return alert('Title is required');
     const processedData = {
       ...formData,
       year: parseInt(formData.year, 10),
       authors: formData.authors.split(',').map(a => a.trim()).filter(a => a)
     };
-    onSubmit(processedData);
+    try {
+      setIsSubmitting(true);
+      await onSubmit(processedData);
+    } finally {
+      setIsSubmitting(false);
+    }
   };
   const formContent = <form onSubmit={handleSubmit} className="space-y-4">
             {}
@@ -103,12 +110,12 @@ const PaperForm = ({
 
             {}
             <div className="flex justify-end space-x-3 pt-6 border-t border-gray-200 mt-6">
-                <button type="button" onClick={onCancel} className="px-6 py-2.5 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition-colors">
+                <button type="button" onClick={onCancel} disabled={isSubmitting} className="px-6 py-2.5 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition-colors disabled:opacity-60 disabled:cursor-not-allowed">
                     Cancel
                 </button>
-                <button type="submit" className="px-6 py-2.5 bg-primary-600 text-white rounded-lg hover:bg-primary-700 flex items-center shadow-sm">
+                <button type="submit" disabled={isSubmitting} className="px-6 py-2.5 bg-primary-600 text-white rounded-lg hover:bg-primary-700 flex items-center shadow-sm disabled:opacity-60 disabled:cursor-not-allowed">
                     <FaSave className="mr-2" />
-                    {paper ? 'Update Paper' : 'Create Paper'}
+                    {isSubmitting ? 'Saving...' : paper ? 'Update Paper' : 'Create Paper'}
                 </button>
             </div>
         </form>;
