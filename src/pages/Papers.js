@@ -1,9 +1,9 @@
 // Papers renders the papers page.
-import React, { useState, useEffect } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { paperApi } from '../api/authApi';
 import PaperCard from '../components/PaperCard';
-import { FaFilter, FaSort, FaSearch, FaTimes, FaChevronDown, FaChevronUp, FaCalendarAlt, FaNewspaper, FaUser, FaQuoteRight, FaPlus, FaEdit, FaTrash } from 'react-icons/fa';
+import { FaFilter, FaSort, FaSearch, FaTimes, FaChevronDown, FaChevronUp, FaCalendarAlt, FaNewspaper, FaUser, FaStar, FaPlus, FaEdit, FaTrash } from 'react-icons/fa';
 import toast from 'react-hot-toast';
 import { useTheme } from '../context/ThemeContext';
 import { getTheme } from '../utils/theme';
@@ -25,14 +25,14 @@ const Papers = () => {
     yearTo: '',
     journal: '',
     author: '',
-    minCitations: '',
+    highlyCollaborative: false,
     sortBy: 'recent'
   });
   const [expandedSections, setExpandedSections] = useState({
     year: true,
     journal: false,
     author: false,
-    citations: false
+    collaboration: false
   });
   const [showFilters, setShowFilters] = useState(true);
   const [activeFiltersCount, setActiveFiltersCount] = useState(0);
@@ -41,22 +41,40 @@ const Papers = () => {
       length: 20
     }, (_, i) => 2024 - i)
   });
+  const filtersRef = useRef(filters);
+  useEffect(() => {
+    filtersRef.current = filters;
+  }, [filters]);
   useEffect(() => {
     const q = new URLSearchParams(window.location.search).get('q');
     if (q) {
       setSearchQuery(q);
-      handleSearch(q);
+      handleSearch(q, filtersRef.current, page);
     } else {
-      fetchPapers();
+      fetchPapers(filtersRef.current, page);
     }
   }, [page, filters.sortBy]);
   useEffect(() => {
-    setActiveFiltersCount(Object.entries(filters).filter(([k, v]) => v && k !== 'sortBy').length);
+    setActiveFiltersCount(Object.entries(filters).filter(([k, v]) => k !== 'sortBy' && ((typeof v === 'boolean' && v) || (typeof v !== 'boolean' && v))).length);
   }, [filters]);
-  const fetchPapers = async () => {
+  const fetchPapers = async (filterSnapshot = filtersRef.current, pageSnapshot = page) => {
     setLoading(true);
     try {
-      const d = await paperApi.getAllPapers(page, 20, filters.sortBy);
+      const d = await paperApi.getAllPapers(pageSnapshot, 20, filterSnapshot.sortBy, {
+        ...(filterSnapshot.yearFrom && {
+          yearFrom: filterSnapshot.yearFrom
+        }),
+        ...(filterSnapshot.yearTo && {
+          yearTo: filterSnapshot.yearTo
+        }),
+        ...(filterSnapshot.journal && {
+          journal: filterSnapshot.journal
+        }),
+        ...(filterSnapshot.author && {
+          author: filterSnapshot.author
+        }),
+        highlyCollaborative: filterSnapshot.highlyCollaborative
+      });
       setPapers(d.papers || []);
       setTotalPages(d.pagination?.pages || 1);
       setTotal(d.pagination?.total || 0);
@@ -66,35 +84,37 @@ const Papers = () => {
       setLoading(false);
     }
   };
-  const handleSearch = async (query = searchQuery) => {
+  const handleSearch = async (query = searchQuery, filterSnapshot = filtersRef.current, pageSnapshot = 1) => {
     if (!query.trim()) {
-      fetchPapers();
+      fetchPapers(filterSnapshot, pageSnapshot);
       return;
     }
     setLoading(true);
     try {
       const sf = {
-        ...(filters.yearFrom && {
-          yearFrom: filters.yearFrom
+        ...(filterSnapshot.yearFrom && {
+          yearFrom: filterSnapshot.yearFrom
         }),
-        ...(filters.yearTo && {
-          yearTo: filters.yearTo
+        ...(filterSnapshot.yearTo && {
+          yearTo: filterSnapshot.yearTo
         }),
-        ...(filters.journal && {
-          journal: filters.journal
+        ...(filterSnapshot.journal && {
+          journal: filterSnapshot.journal
         }),
-        ...(filters.author && {
-          author: filters.author
+        ...(filterSnapshot.author && {
+          author: filterSnapshot.author
         }),
-        ...(filters.minCitations && {
-          minCitations: filters.minCitations
+        ...(filterSnapshot.highlyCollaborative && {
+          highlyCollaborative: true
         }),
-        sortBy: filters.sortBy
+        sortBy: filterSnapshot.sortBy,
+        page: pageSnapshot,
+        limit: 20
       };
       const d = await paperApi.searchPapers(query, sf);
       setPapers(d.papers || []);
       setTotal(d.total || 0);
-      setPage(1);
+      setTotalPages(d.pagination?.pages || 1);
     } catch {
       toast.error('Search failed');
     } finally {
@@ -106,8 +126,16 @@ const Papers = () => {
     [k]: v
   }));
   const applyFilters = () => {
-    setPage(1);
-    searchQuery ? handleSearch() : fetchPapers();
+    const nextFilters = {
+      ...filtersRef.current
+    };
+
+    if (page !== 1) {
+      setPage(1);
+      return;
+    }
+
+    searchQuery ? handleSearch(searchQuery, nextFilters, 1) : fetchPapers(nextFilters, 1);
   };
   const clearAllFilters = () => {
     setFilters({
@@ -115,7 +143,7 @@ const Papers = () => {
       yearTo: '',
       journal: '',
       author: '',
-      minCitations: '',
+      highlyCollaborative: false,
       sortBy: 'recent'
     });
     setSearchQuery('');
@@ -127,8 +155,14 @@ const Papers = () => {
   }));
   const removeFilter = k => setFilters(p => ({
     ...p,
-    [k]: ''
+    [k]: typeof p[k] === 'boolean' ? false : ''
   }));
+  const handleToggleHighlyCollaborative = () => {
+    setFilters(prev => ({
+      ...prev,
+      highlyCollaborative: !prev.highlyCollaborative
+    }));
+  };
   const handleEdit = paper => navigate(`/papers/edit/${paper.paper_id || paper._id}`);
   const handleDelete = async id => {
     if (window.confirm('Delete this paper?')) {
@@ -314,7 +348,7 @@ const Papers = () => {
           color: t.textMuted,
           fontWeight: 600
         }}>Active filters:</span>
-            {[['yearFrom', 'Year from'], ['yearTo', 'Year to'], ['journal', 'Journal'], ['author', 'Author'], ['minCitations', 'Min citations']].map(([k, label]) => filters[k] ? <span key={k} style={{
+            {[['yearFrom', 'Year from'], ['yearTo', 'Year to'], ['journal', 'Journal'], ['author', 'Author']].map(([k, label]) => filters[k] ? <span key={k} style={{
           display: 'inline-flex',
           alignItems: 'center',
           gap: 5,
@@ -334,6 +368,26 @@ const Papers = () => {
             display: 'flex'
           }}><FaTimes size={10} /></button>
                 </span> : null)}
+            {filters.highlyCollaborative && <span style={{
+          display: 'inline-flex',
+          alignItems: 'center',
+          gap: 5,
+          padding: '0.25rem 0.7rem',
+          borderRadius: 999,
+          fontSize: '0.78rem',
+          background: t.accentBg,
+          color: t.accentText,
+          border: `1px solid ${t.accentBorder}`
+        }}>
+                Potentially collaborative
+                <button onClick={() => removeFilter('highlyCollaborative')} style={{
+            background: 'none',
+            border: 'none',
+            cursor: 'pointer',
+            color: t.accentText,
+            display: 'flex'
+          }}><FaTimes size={10} /></button>
+              </span>}
             <button onClick={clearAllFilters} style={{
           fontSize: '0.78rem',
           color: t.accentText,
@@ -473,7 +527,28 @@ const Papers = () => {
               </FilterSection>
               <FilterSection id="journal" icon={FaNewspaper} label="Journal"><input type="text" value={filters.journal} onChange={e => handleFilterChange('journal', e.target.value)} placeholder="Enter journal name" style={inputStyle} />{applyBtn}</FilterSection>
               <FilterSection id="author" icon={FaUser} label="Author"><input type="text" value={filters.author} onChange={e => handleFilterChange('author', e.target.value)} placeholder="Enter author name" style={inputStyle} />{applyBtn}</FilterSection>
-              <FilterSection id="citations" icon={FaQuoteRight} label="Citations"><input type="number" value={filters.minCitations} onChange={e => handleFilterChange('minCitations', e.target.value)} placeholder="Minimum citations" min="0" style={inputStyle} />{applyBtn}</FilterSection>
+              <FilterSection id="collaboration" icon={FaStar} label="Collaboration">
+                <label style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 8,
+                  fontSize: '0.82rem',
+                  color: t.textSecondary,
+                  cursor: 'pointer'
+                }}>
+                  <input
+                    type="checkbox"
+                    checked={filters.highlyCollaborative}
+                    onChange={handleToggleHighlyCollaborative}
+                    style={{ accentColor: t.accent, width: 15, height: 15 }}
+                  />
+                  Show only potentially collaborative papers
+                </label>
+                <p style={{ margin: 0, fontSize: '0.72rem', color: t.textMuted, lineHeight: 1.45 }}>
+                  Uses `trg_mark_important_paper` to surface papers with broader collaboration potential.
+                </p>
+                {applyBtn}
+              </FilterSection>
             </div>}
 
           <div>
@@ -625,6 +700,3 @@ const Papers = () => {
     </div>;
 };
 export default Papers;
-
-
-

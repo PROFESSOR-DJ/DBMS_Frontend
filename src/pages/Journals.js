@@ -1,9 +1,8 @@
 // Journals renders the journals page.
-// Now shows two data sources:
-//  1. MongoDB aggregation (existing full list)
-//  2. journals.paper_count via /stats/journal-popularity
-//     (maintained by trigger trg_update_journal_count — no GROUP BY at query time)
-import React, { useState, useEffect } from 'react';
+// The table reads directly from the SQL journals table so newly inserted
+// journals appear immediately, while the chart still uses trigger-maintained
+// journal popularity data when available.
+import React, { useState, useEffect, useCallback } from 'react';
 import api, { statsApi } from '../api/authApi';
 import {
   FaNewspaper, FaChartBar, FaSort, FaSearch,
@@ -39,20 +38,22 @@ const Journals = () => {
   const [journals, setJournals]                 = useState([]);
   const [popularityData, setPopularityData]     = useState([]);
   const [loading, setLoading]                   = useState(true);
-  const [loadingPop, setLoadingPop]             = useState(true);
-  const [sortBy, setSortBy]                     = useState('count');
+  const [sortBy, setSortBy]                     = useState('recent');
   const [searchTerm, setSearchTerm]             = useState('');
   const [showTriggerInfo, setShowTriggerInfo]   = useState(false);
+  const [journalTotal, setJournalTotal]         = useState(0);
 
-  useEffect(() => {
-    fetchJournals();
-    fetchPopularity();
-  }, []);
-
-  const fetchJournals = async () => {
+  const fetchJournals = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await api.get('/stats/journals', { params: { limit: 200 } });
+      const res = await api.get('/stats/journals', {
+        params: {
+          limit: 300,
+          offset: 0,
+          sortBy,
+          search: searchTerm.trim() || undefined,
+        },
+      });
       const raw = res.data?.journals ?? [];
       setJournals(
         raw.map(j => ({
@@ -60,43 +61,48 @@ const Journals = () => {
           count: Number(j.count) || 0,
         })).filter(j => j.name && j.name.trim() !== '' && j.name !== 'Unknown')
       );
+      setJournalTotal(Number(res.data?.total) || raw.length);
     } catch {
       toast.error('Failed to load journals');
     } finally {
       setLoading(false);
     }
-  };
+  }, [searchTerm, sortBy]);
 
   // New: reads journals.paper_count maintained by trg_update_journal_count
-  const fetchPopularity = async () => {
-    setLoadingPop(true);
+  const fetchPopularity = useCallback(async () => {
     try {
       const data = await statsApi.getJournalPopularity(8);
       setPopularityData(data.journals || []);
     } catch {
       // Non-critical — silently ignore
-    } finally {
-      setLoadingPop(false);
     }
-  };
+  }, []);
 
-  const sorted = [...journals].sort((a, b) => {
-    if (sortBy === 'count') return b.count - a.count;
-    if (sortBy === 'name')  return a.name.localeCompare(b.name);
-    return 0;
-  });
-  const visible = sorted.filter(j => j.name.toLowerCase().includes(searchTerm.toLowerCase()));
+  useEffect(() => {
+    fetchPopularity();
+  }, [fetchPopularity]);
 
-  const totalJournals    = journals.length;
-  const maxCount         = sorted[0]?.count ?? 1;
-  const topJournalName   = sorted[0]?.name  ?? '—';
-  const topJournalCount  = sorted[0]?.count ?? 0;
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      fetchJournals();
+    }, 300);
+
+    return () => clearTimeout(timer);
+  }, [fetchJournals]);
+
+  const visible = journals;
+
+  const totalJournals    = journalTotal || journals.length;
+  const maxCount         = visible.reduce((highest, journal) => Math.max(highest, journal.count), 1);
+  const topJournalName   = popularityData[0]?.journal_name || popularityData[0]?.name || journals[0]?.name || '—';
+  const topJournalCount  = popularityData[0]?.paper_count ?? popularityData[0]?.count ?? journals[0]?.count ?? 0;
   const totalAllPapers   = journals.reduce((s, j) => s + j.count, 0);
   const avgPerJournal    = totalJournals ? Math.round(totalAllPapers / totalJournals) : 0;
 
   // Use popularity data (trigger-maintained) for the bar chart if available,
   // otherwise fall back to MongoDB data
-  const chartSource = popularityData.length > 0 ? popularityData : sorted.slice(0, 8);
+  const chartSource = popularityData.length > 0 ? popularityData : journals.slice(0, 8);
   const chartData   = chartSource.map(j => ({
     name:   (j.journal_name || j.name || '').length > 20
               ? (j.journal_name || j.name || '').slice(0, 20) + '…'
@@ -136,6 +142,7 @@ const Journals = () => {
                          background: t.inputBg, border: `1px solid ${t.inputBorder}`,
                          color: t.textSecondary, fontSize: '0.875rem', outline: 'none', cursor: 'pointer' }}>
                 <option value="count">Most Papers</option>
+                <option value="recent">Recently Added</option>
                 <option value="name">Name A-Z</option>
               </select>
             </div>

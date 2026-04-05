@@ -1,5 +1,6 @@
 // authApi wraps frontend authentication and data requests to the backend.
 import axios from 'axios';
+import { clearAuthSession, getAuthToken } from '../utils/auth';
 
 const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000/api';
 
@@ -10,7 +11,7 @@ const api = axios.create({
 
 api.interceptors.request.use(
   config => {
-    const token = localStorage.getItem('token');
+    const token = getAuthToken();
     if (token) config.headers.Authorization = `Bearer ${token}`;
     return config;
   },
@@ -21,8 +22,7 @@ api.interceptors.response.use(
   response => response,
   error => {
     if (error.response?.status === 401) {
-      localStorage.removeItem('token');
-      localStorage.removeItem('userEmail');
+      clearAuthSession();
       window.location.href = '/login';
     }
     return Promise.reject(error);
@@ -64,18 +64,18 @@ export const paperApi = {
     return response.data;
   },
   searchPapers: async (query = '', filters = {}) => {
-    const params = new URLSearchParams();
-    if (query) params.append('q', query);
-    Object.keys(filters).forEach(key => {
-      if (filters[key]) params.append(key, filters[key]);
-    });
-    const response = await api.get(`/papers/search?${params.toString()}`);
-    return response.data;
-  },
-  getAllPapers: async (page = 1, limit = 20, sortBy = 'recent') => {
-    const response = await api.get('/papers', { params: { page, limit, sortBy } });
-    return response.data;
-  },
+      const params = new URLSearchParams();
+      if (query) params.append('q', query);
+      Object.keys(filters).forEach(key => {
+        if (filters[key]) params.append(key, filters[key]);
+      });
+      const response = await api.get(`/papers/search?${params.toString()}`);
+      return response.data;
+    },
+  getAllPapers: async (page = 1, limit = 20, sortBy = 'recent', filters = {}) => {
+      const response = await api.get('/papers', { params: { page, limit, sortBy, ...filters } });
+      return response.data;
+    },
   getPaperById: async id => {
     const response = await api.get(`/papers/${id}`);
     return response.data;
@@ -195,32 +195,35 @@ export const statsApi = {
 
   // ── Stored procedure: GetTrendingPapers(year, limit) ─────────────────────
   // Papers published from `year` onwards, ranked by author_count DESC
-  getTrendingPapers: async (year, limit = 10) => {
+  getTrendingPapers: async (year, limit = 10, options = {}) => {
     const params = {};
-    if (year)  params.year  = year;
+    if (year) params.year = year;
     if (limit) params.limit = limit;
+    if (options.curated !== undefined) params.curated = options.curated;
     const response = await api.get('/stats/trending', { params });
     return response.data; // { papers, count, from_year, procedure }
   },
 
   // ── Stored procedure: GetIncompletePapers() ──────────────────────────────
   // Papers missing abstract, journal_id, or publish_year
-  getIncompletePapers: async () => {
-    const response = await api.get('/stats/incomplete-papers');
+  getIncompletePapers: async (limit = 6, offset = 0) => {
+    const response = await api.get('/stats/incomplete-papers', { params: { limit, offset } });
     return response.data; // { papers, count, procedure }
   },
 
   // ── Stored procedure: GetActiveUsers() ───────────────────────────────────
   // Users ordered by last_login DESC (last_login maintained by trg_update_last_login)
-  getActiveUsers: async () => {
-    const response = await api.get('/stats/active-users');
+  getActiveUsers: async (limit = 6, offset = 0) => {
+    const response = await api.get('/stats/active-users', { params: { limit, offset } });
     return response.data; // { users, count, procedure, trigger }
   },
 
   // ── Trigger: trg_mark_important_paper ────────────────────────────────────
   // Papers auto-flagged is_important=TRUE when author_count >= 5
-  getImportantPapers: async (limit = 20, offset = 0) => {
-    const response = await api.get('/stats/important-papers', { params: { limit, offset } });
+  getImportantPapers: async (limit = 20, offset = 0, options = {}) => {
+    const params = { limit, offset };
+    if (options.curated !== undefined) params.curated = options.curated;
+    const response = await api.get('/stats/important-papers', { params });
     return response.data; // { papers, count }
   },
 

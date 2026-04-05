@@ -2,7 +2,7 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { FaEnvelope, FaLock, FaSignInAlt, FaDatabase } from 'react-icons/fa';
+import { FaClock, FaEnvelope, FaLock, FaSignInAlt, FaDatabase } from 'react-icons/fa';
 const Orb = ({
   style
 }) => <div style={{
@@ -21,7 +21,8 @@ const Login = () => {
   const [loading, setLoading] = useState(false);
   const [focused, setFocused] = useState({});
   const {
-    login
+    login,
+    inactivityTimeoutMs
   } = useAuth();
   const navigate = useNavigate();
   const handleChange = e => setFormData({
@@ -236,24 +237,21 @@ const Login = () => {
           <div style={{
           display: 'flex',
           alignItems: 'center',
-          justifyContent: 'space-between'
+          justifyContent: 'space-between',
+          gap: '0.75rem'
         }}>
-            <label style={{
+            <div style={{
             display: 'flex',
             alignItems: 'center',
             gap: 8,
-            cursor: 'pointer'
+            color: '#64748b',
+            fontSize: '0.85rem'
           }}>
-              <input type="checkbox" style={{
-              accentColor: '#6366f1',
-              width: 15,
-              height: 15
+              <FaClock size={12} style={{
+              color: '#818cf8'
             }} />
-              <span style={{
-              fontSize: '0.85rem',
-              color: '#64748b'
-            }}>Remember me</span>
-            </label>
+              Session expires after {Math.round(inactivityTimeoutMs / 60000)} min idle
+            </div>
             <Link to="/forgot-password" style={{
             fontSize: '0.85rem',
             color: '#818cf8',

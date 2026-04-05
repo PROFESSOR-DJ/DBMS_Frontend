@@ -1,9 +1,9 @@
 // Authors renders the authors page.
-// Uses stored procedure GetAuthorImpact() via GET /stats/authors
-// (replaces the old direct SQL query — procedure aggregates all authors ordered by impact).
-import React, { useState, useEffect, useMemo } from 'react';
+// The main list reads directly from the authors table so newly inserted authors
+// appear immediately, while search still uses the dedicated author search API.
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { paperApi, authorApi, statsApi } from '../api/authApi';
+import { authorApi } from '../api/authApi';
 import {
   FaUser, FaSort, FaSearch, FaEdit, FaTrash, FaPlus, FaTrophy, FaDatabase,
 } from 'react-icons/fa';
@@ -26,10 +26,10 @@ const Authors = () => {
   const [loading, setLoading]         = useState(true);
   const [searchTerm, setSearchTerm]   = useState('');
   const [searchFocused, setSearchFocused] = useState(false);
-  const [sortBy, setSortBy]           = useState('papers');
-  const [dataSource, setDataSource]   = useState('procedure'); // 'procedure' | 'search'
+  const [sortBy, setSortBy]           = useState('recent');
+  const [dataSource, setDataSource]   = useState('table'); // 'table' | 'search'
 
-  const fetchAuthors = async () => {
+  const fetchAuthors = useCallback(async () => {
     setLoading(true);
     try {
       if (searchTerm.trim()) {
@@ -38,22 +38,22 @@ const Authors = () => {
         setAuthors(data.authors || []);
         setDataSource('search');
       } else {
-        // Stored procedure GetAuthorImpact() via /stats/authors
-        const data = await statsApi.getAuthorImpact(200);
+        // Direct list from authors table so newly added authors show up immediately.
+        const data = await authorApi.getAllAuthors({ limit: 250, offset: 0, sortBy });
         setAuthors(data.authors || []);
-        setDataSource('procedure');
+        setDataSource('table');
       }
     } catch {
       toast.error('Failed to load authors');
     } finally {
       setLoading(false);
     }
-  };
+  }, [searchTerm, sortBy]);
 
   useEffect(() => {
     const timer = setTimeout(fetchAuthors, 500);
     return () => clearTimeout(timer);
-  }, [searchTerm]);
+  }, [fetchAuthors]);
 
   const sortedAuthors = useMemo(() => (
     [...authors].sort((a, b) => {
@@ -61,8 +61,11 @@ const Authors = () => {
       const cB = b.total_papers ?? b.paper_count ?? b.count ?? 0;
       const nA = a.author_name ?? a.name ?? a.author ?? '';
       const nB = b.author_name ?? b.name ?? b.author ?? '';
+      const dA = new Date(a.created_at || 0).getTime();
+      const dB = new Date(b.created_at || 0).getTime();
       if (sortBy === 'papers') return cB - cA;
       if (sortBy === 'name')   return nA.localeCompare(nB);
+      if (sortBy === 'recent') return dB - dA;
       return 0;
     })
   ), [authors, sortBy]);
@@ -104,13 +107,13 @@ const Authors = () => {
                 <p style={{ color: t.textMuted, fontSize: '0.875rem', margin: 0 }}>
                   Top authors and their research contributions
                 </p>
-                {dataSource === 'procedure' && (
+                {dataSource === 'table' && (
                   <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4,
                                  padding: '0.15rem 0.55rem', borderRadius: 999,
                                  background: 'rgba(6,182,212,0.12)', border: '1px solid rgba(6,182,212,0.25)',
                                  fontSize: '0.68rem', fontWeight: 700, color: '#22d3ee' }}>
                     <FaDatabase size={8} />
-                    GetAuthorImpact()
+                    authors table
                   </span>
                 )}
               </div>
@@ -154,6 +157,7 @@ const Authors = () => {
                        border: `1px solid ${t.inputBorder}`, color: t.textSecondary,
                        fontSize: '0.875rem', outline: 'none', cursor: 'pointer' }}>
               <option value="papers">Most Papers</option>
+              <option value="recent">Recently Added</option>
               <option value="name">Name A-Z</option>
             </select>
           </div>
@@ -165,8 +169,8 @@ const Authors = () => {
             <span style={{ fontWeight: 700, color: t.textPrimary }}>{sortedAuthors.length}</span>
             {' '}authors
             {searchTerm && <span style={{ color: t.accentText }}> (search results)</span>}
-            {!searchTerm && dataSource === 'procedure' && (
-              <span style={{ color: t.textMuted }}> · via stored procedure</span>
+            {!searchTerm && dataSource === 'table' && (
+              <span style={{ color: t.textMuted }}> · direct SQL list</span>
             )}
           </span>
         </div>

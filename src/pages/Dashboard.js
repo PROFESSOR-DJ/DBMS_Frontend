@@ -1,12 +1,10 @@
 // Dashboard renders the dashboard page.
 import React, { useState, useEffect } from 'react';
-import { paperApi, statsApi } from '../api/authApi';
+import { statsApi } from '../api/authApi';
 import StatCard from '../components/StatCard';
 import { PapersPerYearChart, TopJournalsChart, AuthorPublicationsChart } from '../components/Charts';
 import SearchBar from '../components/SearchBar';
 import TrendingPapersSection from '../components/TrendingPapersSection';
-import ImportantPapersSection from '../components/ImportantPapersSection';
-import DataQualityPanel from '../components/DataQualityPanel';
 import {
   FaSearch, FaChartLine, FaDatabase, FaArrowRight,
   FaFileAlt, FaUsers, FaNewspaper,
@@ -171,7 +169,6 @@ const Dashboard = () => {
         <TrendingPapersSection isDark={isDark} t={t} />
 
         {/* ══ NEW: Highly Collaborative Papers (trg_mark_important_paper) */}
-        <ImportantPapersSection isDark={isDark} t={t} />
 
         {/* ── Platform Overview cards ───────────────────────────────────── */}
         <div className="animate-fade-in" style={{ marginBottom: '2.5rem' }}>
@@ -245,7 +242,6 @@ const Dashboard = () => {
         </div>
 
         {/* ══ NEW: Data Quality & Activity drawer (procedures + trigger) ═ */}
-        <DataQualityPanel isDark={isDark} t={t} />
 
         {/* ── Quick Actions ─────────────────────────────────────────────── */}
         <div className="animate-fade-in"
@@ -306,9 +302,9 @@ const Dashboard = () => {
                 { title: 'Trending Papers',     desc: 'Ranked by collaboration breadth via GetTrendingPapers()',
                   bg: 'rgba(245,158,11,0.10)', border: 'rgba(245,158,11,0.2)',
                   tc: '#fcd34d', dc: '#f59e0b' },
-                { title: 'Auto-flagged Papers', desc: 'trg_mark_important_paper flags high-author-count papers',
+                { title: 'Paper List Badges',   desc: 'Important and incomplete states now appear directly on each paper card',
                   bg: t.accentBg, border: t.accentBorder, tc: t.accentText, dc: t.accent },
-                { title: 'Data Quality Audit',  desc: 'GetIncompletePapers() surfaces records needing attention',
+                { title: 'Collaboration Trigger', desc: 'trg_mark_important_paper is surfaced in the papers list instead of the dashboard',
                   bg: 'rgba(16,185,129,0.10)', border: 'rgba(16,185,129,0.2)',
                   tc: '#6ee7b7', dc: '#34d399' },
                 { title: 'Live User Activity',  desc: 'trg_update_last_login keeps sessions current automatically',

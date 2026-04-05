@@ -18,7 +18,7 @@ const AddPaper = () => {
       navigate('/papers');
     } catch (error) {
       console.error('Failed to create paper:', error);
-      toast.error('Failed to create paper');
+      toast.error(error.response?.data?.error || 'Failed to create paper');
     }
   };
   return <div className="min-h-screen bg-gray-50 py-8 px-4">
