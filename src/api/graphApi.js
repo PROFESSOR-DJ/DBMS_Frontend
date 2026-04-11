@@ -61,6 +61,31 @@ export const graphApi = {
     });
     return res.data;
   },
+  checkConflictOfInterest: async (reviewer, authors) => {
+    const res = await api.post('/graph/conflict-check', {
+      reviewer,
+      authors
+    });
+    return res.data;
+  },
+  getAuthorTrackRecord: async name => {
+    const res = await api.get('/stats/author-track', {
+      params: {
+        name
+      }
+    });
+    return res.data;
+  },
+  findSimilarPapers: async ({ title, abstract, limit = 5 }) => {
+    const res = await api.get('/papers/similar', {
+      params: {
+        title,
+        abstract,
+        limit
+      }
+    });
+    return res.data;
+  },
   getHealth: async () => {
     const res = await api.get('/graph/health');
     return res.data;

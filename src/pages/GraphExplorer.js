@@ -7,6 +7,17 @@ import { FaProjectDiagram, FaUser, FaNewspaper, FaDatabase, FaSearch, FaSpinner,
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell, PieChart, Pie, Legend } from 'recharts';
 import toast from 'react-hot-toast';
 const COLORS = ['#6366f1', '#a855f7', '#06b6d4', '#10b981', '#f59e0b', '#ef4444', '#ec4899', '#8b5cf6', '#14b8a6', '#f97316'];
+const quartileTone = quartile => ({
+  Q1: { bg: 'rgba(16,185,129,0.16)', border: 'rgba(16,185,129,0.28)', text: '#34d399' },
+  Q2: { bg: 'rgba(14,165,233,0.16)', border: 'rgba(14,165,233,0.28)', text: '#38bdf8' },
+  Q3: { bg: 'rgba(245,158,11,0.16)', border: 'rgba(245,158,11,0.28)', text: '#fbbf24' },
+  Q4: { bg: 'rgba(239,68,68,0.16)', border: 'rgba(239,68,68,0.28)', text: '#f87171' },
+  fallback: { bg: 'rgba(148,163,184,0.16)', border: 'rgba(148,163,184,0.28)', text: '#cbd5e1' }
+}[quartile] || { bg: 'rgba(148,163,184,0.16)', border: 'rgba(148,163,184,0.28)', text: '#cbd5e1' });
+const formatMetric = (value, digits = 2) => value === null || value === undefined || value === '' ? '—' : Number(value).toLocaleString(undefined, {
+  minimumFractionDigits: digits,
+  maximumFractionDigits: digits
+});
 const CustomTooltip = ({
   active,
   payload,
@@ -88,6 +99,21 @@ const GraphExplorer = () => {
   const [networkData, setNetworkData] = useState(null);
   const [loadingNetwork, setLoadingNetwork] = useState(false);
   const [activeTab, setActiveTab] = useState('overview');
+  const [reviewerName, setReviewerName] = useState('');
+  const [reviewerGraphName, setReviewerGraphName] = useState('');
+  const [reviewerSearch, setReviewerSearch] = useState('');
+  const [reviewerResults, setReviewerResults] = useState([]);
+  const [reviewerSearching, setReviewerSearching] = useState(false);
+  const [reviewerSelectionLocked, setReviewerSelectionLocked] = useState(false);
+  const [paperAuthors, setPaperAuthors] = useState('');
+  const [paperTitle, setPaperTitle] = useState('');
+  const [paperAbstract, setPaperAbstract] = useState('');
+  const [trackRecord, setTrackRecord] = useState(null);
+  const [trackRecordSearched, setTrackRecordSearched] = useState(false);
+  const [conflictData, setConflictData] = useState(null);
+  const [similarPapers, setSimilarPapers] = useState([]);
+  const [loadingReviewer, setLoadingReviewer] = useState(false);
+  const [loadingSimilar, setLoadingSimilar] = useState(false);
   useEffect(() => {
     checkHealth();
   }, []);
@@ -140,6 +166,30 @@ const GraphExplorer = () => {
     }, 400);
     return () => clearTimeout(t);
   }, [authorSearch]);
+  useEffect(() => {
+    if (activeTab !== 'reviewer') return;
+    if (reviewerSelectionLocked) return;
+
+    const query = reviewerSearch.trim().replace(/^['"]+|['"]+$/g, '');
+    if (query.length < 2) {
+      setReviewerResults([]);
+      return;
+    }
+
+    const timer = setTimeout(async () => {
+      setReviewerSearching(true);
+      try {
+        const data = await graphApi.searchAuthors(query);
+        setReviewerResults(data.authors || []);
+      } catch {
+        setReviewerResults([]);
+      } finally {
+        setReviewerSearching(false);
+      }
+    }, 300);
+
+    return () => clearTimeout(timer);
+  }, [activeTab, reviewerSearch, reviewerSelectionLocked]);
   const loadAuthorNetwork = async name => {
     setSelectedAuthor(name);
     setSearchResults([]);
@@ -155,6 +205,81 @@ const GraphExplorer = () => {
       setLoadingNetwork(false);
     }
   };
+  const parsePaperAuthors = () => paperAuthors.split(',').map(author => author.trim()).filter(Boolean);
+  const cleanReviewerDisplayName = value => String(value || '').trim().replace(/^[\s'"[\]]+|[\s'"[\]]+$/g, '').replace(/\s+/g, ' ');
+  const loadReviewerTools = async (name, displayName) => {
+    const reviewerForGraph = String(name || reviewerGraphName || reviewerName).trim();
+    const reviewerDisplayName = cleanReviewerDisplayName(displayName || reviewerForGraph);
+    const authors = parsePaperAuthors();
+    if (!reviewerDisplayName) {
+      toast.error('Choose or enter a reviewer name');
+      return;
+    }
+
+    setReviewerName(reviewerDisplayName);
+    setReviewerGraphName(reviewerForGraph || reviewerDisplayName);
+    setReviewerSearch(reviewerDisplayName);
+    setReviewerResults([]);
+    setReviewerSearching(false);
+    setReviewerSelectionLocked(true);
+    setLoadingReviewer(true);
+    setTrackRecordSearched(false);
+
+    try {
+      const requests = [graphApi.getAuthorTrackRecord(reviewerDisplayName)];
+      if (authors.length > 0) {
+        requests.push(graphApi.checkConflictOfInterest(reviewerForGraph || reviewerDisplayName, authors));
+      }
+
+      const [track, conflict] = await Promise.allSettled(requests);
+      setTrackRecordSearched(true);
+      if (track.status === 'fulfilled') {
+        setTrackRecord(track.value.track_record || null);
+      } else {
+        setTrackRecord(null);
+        toast.error('Author track record could not be loaded');
+      }
+
+      if (authors.length > 0) {
+        if (conflict.status === 'fulfilled') {
+          setConflictData(conflict.value);
+        } else {
+          setConflictData(null);
+          toast.error('Conflict check could not be loaded');
+        }
+      } else {
+        setConflictData(null);
+      }
+    } finally {
+      setLoadingReviewer(false);
+    }
+  };
+  const loadSimilarPapers = async () => {
+    if ([paperTitle, paperAbstract].filter(Boolean).join(' ').trim().length < 10) {
+      toast.error('Add a title or abstract with at least 10 characters');
+      return;
+    }
+
+    setLoadingSimilar(true);
+    try {
+      const data = await graphApi.findSimilarPapers({
+        title: paperTitle,
+        abstract: paperAbstract,
+        limit: 5
+      });
+      setSimilarPapers(data.similar_papers || []);
+    } catch {
+      setSimilarPapers([]);
+      toast.error('Similar papers could not be loaded');
+    } finally {
+      setLoadingSimilar(false);
+    }
+  };
+  const conflictTone = level => ({
+    HIGH: { bg: 'rgba(239,68,68,0.16)', border: 'rgba(239,68,68,0.32)', text: '#f87171' },
+    MEDIUM: { bg: 'rgba(245,158,11,0.16)', border: 'rgba(245,158,11,0.32)', text: '#fbbf24' },
+    NONE: { bg: 'rgba(16,185,129,0.16)', border: 'rgba(16,185,129,0.32)', text: '#34d399' }
+  }[level] || { bg: 'rgba(148,163,184,0.16)', border: 'rgba(148,163,184,0.28)', text: '#cbd5e1' });
   const card = {
     background: t.cardBg,
     backdropFilter: 'blur(16px)',
@@ -349,28 +474,6 @@ NEO4J_PASSWORD=your_password`}
                 Research Knowledge Graph — authors, papers, journals &amp; relationships
               </p>
             </div>
-            {}
-            <div style={{
-            display: 'inline-flex',
-            alignItems: 'center',
-            gap: 7,
-            padding: '0.45rem 0.9rem',
-            borderRadius: 999,
-            background: 'rgba(16,185,129,0.12)',
-            border: '1px solid rgba(16,185,129,0.25)',
-            fontSize: '0.8rem',
-            fontWeight: 600,
-            color: '#6ee7b7'
-          }}>
-              <span style={{
-              width: 7,
-              height: 7,
-              borderRadius: '50%',
-              background: '#10b981',
-              display: 'inline-block'
-            }} />
-              Connected
-            </div>
           </div>
         </div>
 
@@ -384,6 +487,7 @@ NEO4J_PASSWORD=your_password`}
           <StatPill label="Papers" value={stats?.papers} sub="nodes in graph" color="#6366f1" loading={loadingStats} />
           <StatPill label="Authors" value={stats?.authors} sub="unique researchers" color="#a855f7" loading={loadingStats} />
           <StatPill label="Journals" value={stats?.journals} sub="publication venues" color="#06b6d4" loading={loadingStats} />
+          <StatPill label="Ranked Journals" value={stats?.ranked_journals} sub={loadingStats ? '' : `Q1: ${stats?.q1_journals || 0} • OA: ${stats?.open_access_journals || 0}`} color="#22c55e" loading={loadingStats} />
           <StatPill label="Sources" value={stats?.sources} sub="data origins" color="#10b981" loading={loadingStats} />
           <StatPill label="Relationships" value={stats?.relationships} sub="graph edges total" color="#f59e0b" loading={loadingStats} />
         </div>
@@ -404,6 +508,10 @@ NEO4J_PASSWORD=your_password`}
           id: 'network',
           label: 'Author Network',
           icon: <FaNetworkWired size={12} />
+        }, {
+          id: 'reviewer',
+          label: 'Paper Similarity',
+          icon: <FaSearch size={12} />
         }, {
           id: 'sources',
           label: 'Data Sources',
@@ -445,7 +553,7 @@ NEO4J_PASSWORD=your_password`}
               color: t.textMuted,
               fontSize: '0.875rem'
             }}>Loading…</p> : <div style={{
-              height: 260
+              height: 240
             }}>
                     <ResponsiveContainer width="100%" height="100%">
                       <BarChart data={topAuthors.slice(0, 8).map(a => ({
@@ -473,6 +581,81 @@ NEO4J_PASSWORD=your_password`}
                       </BarChart>
                     </ResponsiveContainer>
                   </div>}
+                {!loadingStats && topJournals.length > 0 && <div style={{
+              marginTop: '1rem',
+              display: 'grid',
+              gap: '0.6rem',
+              maxHeight: 240,
+              overflowY: 'auto'
+            }}>
+                    {topJournals.slice(0, 6).map((journal, index) => {
+                const tone = quartileTone(journal.quartile);
+                return <div key={`${journal.name}-${index}`} style={{
+                  padding: '0.75rem 0.85rem',
+                  borderRadius: 12,
+                  background: t.inputBg,
+                  border: `1px solid ${t.inputBorder}`
+                }}>
+                          <div style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    gap: '0.75rem',
+                    marginBottom: '0.45rem'
+                  }}>
+                            <div style={{
+                      fontSize: '0.86rem',
+                      fontWeight: 700,
+                      color: t.textPrimary,
+                      lineHeight: 1.35
+                    }}>{journal.name}</div>
+                            <div style={{
+                      fontSize: '0.8rem',
+                      fontWeight: 700,
+                      color: COLORS[(index + 3) % COLORS.length],
+                      whiteSpace: 'nowrap'
+                    }}>{journal.paperCount} papers</div>
+                          </div>
+                          <div style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 8,
+                    flexWrap: 'wrap'
+                  }}>
+                            <span style={{
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      minWidth: 46,
+                      padding: '0.22rem 0.5rem',
+                      borderRadius: 999,
+                      background: tone.bg,
+                      border: `1px solid ${tone.border}`,
+                      color: tone.text,
+                      fontSize: '0.72rem',
+                      fontWeight: 800
+                    }}>{journal.quartile || 'NR'}</span>
+                            <span style={{
+                      fontSize: '0.75rem',
+                      color: t.textMuted
+                    }}>SJR {formatMetric(journal.sjrIndex)}</span>
+                            <span style={{
+                      fontSize: '0.75rem',
+                      color: t.textMuted
+                    }}>H {journal.hIndex ?? '—'}</span>
+                            <span style={{
+                      fontSize: '0.75rem',
+                      color: t.textMuted
+                    }}>{journal.country || 'Country n/a'}</span>
+                            {journal.openAccess === true && <span style={{
+                      fontSize: '0.72rem',
+                      fontWeight: 700,
+                      color: '#34d399'
+                    }}>OA</span>}
+                          </div>
+                        </div>;
+              })}
+                  </div>}
               </div>
 
               {}
@@ -482,7 +665,7 @@ NEO4J_PASSWORD=your_password`}
               color: t.textMuted,
               fontSize: '0.875rem'
             }}>Loading…</p> : <div style={{
-              height: 260
+              height: 240
             }}>
                     <ResponsiveContainer width="100%" height="100%">
                       <BarChart data={topJournals.slice(0, 8).map(j => ({
@@ -1064,6 +1247,302 @@ NEO4J_PASSWORD=your_password`}
             fontSize: '0.9rem'
           }}>Search for an author above to explore their co-authorship network.</p>
               </div>}
+          </div>}
+
+        {}
+        {activeTab === 'reviewer' && <div className="animate-fade-in">
+            <div style={{
+          display: 'grid',
+          gridTemplateColumns: 'minmax(0,1fr)',
+          gap: '1.5rem',
+          marginBottom: '1.5rem'
+        }}>
+              <div style={card}>
+                {sectionTitle('Paper Similarity', <FaSearch size={14} color="white" />)}
+                <div style={{ display: 'grid', gap: '0.8rem' }}>
+                  <input type="text" value={paperTitle} onChange={e => setPaperTitle(e.target.value)} placeholder="Submitted paper title" style={{
+                width: '100%',
+                padding: '0.75rem 1rem',
+                borderRadius: 12,
+                background: t.inputBg,
+                border: `1px solid ${t.inputBorder}`,
+                color: t.inputColor,
+                fontSize: '0.9rem',
+                outline: 'none',
+                boxSizing: 'border-box'
+              }} />
+                  <textarea value={paperAbstract} onChange={e => setPaperAbstract(e.target.value)} placeholder="Submitted abstract" rows={6} style={{
+                width: '100%',
+                padding: '0.75rem 1rem',
+                borderRadius: 12,
+                background: t.inputBg,
+                border: `1px solid ${t.inputBorder}`,
+                color: t.inputColor,
+                fontSize: '0.9rem',
+                outline: 'none',
+                resize: 'vertical',
+                boxSizing: 'border-box'
+              }} />
+                  <button onClick={loadSimilarPapers} disabled={loadingSimilar} style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: 8,
+                padding: '0.75rem 1rem',
+                borderRadius: 8,
+                border: 'none',
+                cursor: loadingSimilar ? 'wait' : 'pointer',
+                background: 'linear-gradient(135deg,#06b6d4,#10b981)',
+                color: 'white',
+                fontWeight: 700
+              }}>
+                    {loadingSimilar && <FaSpinner size={12} style={{ animation: 'spin 0.8s linear infinite' }} />}
+                    Find similar papers
+                  </button>
+                </div>
+              </div>
+
+              <div style={card}>
+                <h3 style={{ fontSize: '0.95rem', fontWeight: 700, color: t.textPrimary, marginBottom: '1rem' }}>Similar papers</h3>
+                {similarPapers.length > 0 ? <div style={{ display: 'grid', gap: '0.65rem', maxHeight: 420, overflowY: 'auto' }}>
+                    {similarPapers.map((paper, index) => <div key={paper.paper_id || index} style={{ padding: '0.8rem 0.9rem', borderRadius: 10, background: t.inputBg, border: `1px solid ${t.inputBorder}` }}>
+                        <p style={{ color: t.textPrimary, fontWeight: 700, fontSize: '0.86rem', lineHeight: 1.4, marginBottom: '0.3rem' }}>{paper.title || 'Untitled'}</p>
+                        <p style={{ color: t.textMuted, fontSize: '0.75rem' }}>{paper.year || 'Year n/a'} · {paper.journal || 'Journal n/a'} · score {Number(paper.score || 0).toFixed(2)}</p>
+                      </div>)}
+                  </div> : <p style={{ color: t.textMuted, fontSize: '0.875rem' }}>Run a title or abstract search to surface related papers.</p>}
+              </div>
+            </div>
+          </div>}
+
+        {}
+        {false && activeTab === 'reviewer' && <div className="animate-fade-in">
+            <div style={{
+          display: 'grid',
+          gridTemplateColumns: 'repeat(auto-fit,minmax(340px,1fr))',
+          gap: '1.5rem',
+          marginBottom: '1.5rem'
+        }}>
+              <div style={card}>
+                {sectionTitle('Reviewer Profile', <FaUser size={14} color="white" />)}
+                <p style={{
+              fontSize: '0.875rem',
+              color: t.textMuted,
+              marginBottom: '1rem'
+            }}>Select a reviewer and add paper authors to check collaboration conflicts.</p>
+                <div style={{
+              display: 'grid',
+              gap: '0.8rem'
+            }}>
+                  <div style={{ position: 'relative' }}>
+                    <FaSearch size={13} style={{
+                  position: 'absolute',
+                  left: 13,
+                  top: '50%',
+                  transform: 'translateY(-50%)',
+                  color: t.textMuted,
+                  pointerEvents: 'none'
+                }} />
+                    <input type="text" value={reviewerSearch} onChange={e => {
+                  const value = e.target.value.replace(/^['"]+/, '');
+                  setReviewerSelectionLocked(false);
+                  setReviewerSearch(value);
+                  setReviewerName(cleanReviewerDisplayName(value));
+                  setReviewerGraphName(cleanReviewerDisplayName(value));
+                }} placeholder="Reviewer name..." style={{
+                  width: '100%',
+                  padding: '0.75rem 1rem 0.75rem 2.4rem',
+                  borderRadius: 12,
+                  background: t.inputBg,
+                  border: `1px solid ${t.inputBorder}`,
+                  color: t.inputColor,
+                  fontSize: '0.9rem',
+                  outline: 'none',
+                  boxSizing: 'border-box'
+                }} />
+                    {reviewerSearching && <FaSpinner size={13} style={{
+                  position: 'absolute',
+                  right: 13,
+                  top: '50%',
+                  transform: 'translateY(-50%)',
+                  color: t.textMuted,
+                  animation: 'spin 0.8s linear infinite'
+                }} />}
+                  </div>
+                  {activeTab === 'reviewer' && reviewerSearch.trim().length >= 2 && <div style={{
+                background: t.cardBg,
+                border: `1px solid ${t.cardBorder}`,
+                borderRadius: 12,
+                overflow: 'hidden',
+                maxHeight: 220,
+                overflowY: 'auto'
+              }}>
+                      {reviewerSearching && <div style={{
+                    padding: '0.75rem 1rem',
+                    color: t.textMuted,
+                    fontSize: '0.85rem'
+                  }}>Searching reviewers...</div>}
+                      {!reviewerSearching && reviewerResults.length === 0 && <div style={{
+                    padding: '0.75rem 1rem',
+                    color: t.textMuted,
+                    fontSize: '0.85rem'
+                  }}>No reviewer matches found. Try a longer or exact author name.</div>}
+                      {!reviewerSearching && reviewerResults.map((a, i) => <button key={i} onClick={() => loadReviewerTools(a.name, a.displayName || a.name)} style={{
+                    width: '100%',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    padding: '0.7rem 1rem',
+                    background: 'none',
+                    border: 'none',
+                    borderBottom: `1px solid ${t.tableDivider}`,
+                    cursor: 'pointer',
+                    color: t.textPrimary
+                  }}>
+                          <span style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                            <FaUser size={11} style={{ color: '#a855f7' }} />
+                            <span style={{ fontSize: '0.875rem', fontWeight: 500 }}>{a.displayName || a.name}</span>
+                          </span>
+                          <span style={{ fontSize: '0.78rem', color: t.textMuted }}>{a.paperCount} papers</span>
+                        </button>)}
+                    </div>}
+                  <textarea value={paperAuthors} onChange={e => setPaperAuthors(e.target.value)} placeholder="Paper authors, comma-separated" rows={3} style={{
+                width: '100%',
+                padding: '0.75rem 1rem',
+                borderRadius: 12,
+                background: t.inputBg,
+                border: `1px solid ${t.inputBorder}`,
+                color: t.inputColor,
+                fontSize: '0.9rem',
+                outline: 'none',
+                resize: 'vertical',
+                boxSizing: 'border-box'
+              }} />
+                  <button onClick={() => loadReviewerTools()} disabled={loadingReviewer} style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: 8,
+                padding: '0.75rem 1rem',
+                borderRadius: 8,
+                border: 'none',
+                cursor: loadingReviewer ? 'wait' : 'pointer',
+                background: 'linear-gradient(135deg,#a855f7,#6366f1)',
+                color: 'white',
+                fontWeight: 700
+              }}>
+                    {loadingReviewer && <FaSpinner size={12} style={{ animation: 'spin 0.8s linear infinite' }} />}
+                    Run reviewer checks
+                  </button>
+                </div>
+              </div>
+
+              <div style={card}>
+                {sectionTitle('Paper Similarity', <FaSearch size={14} color="white" />)}
+                <div style={{ display: 'grid', gap: '0.8rem' }}>
+                  <input type="text" value={paperTitle} onChange={e => setPaperTitle(e.target.value)} placeholder="Submitted paper title" style={{
+                width: '100%',
+                padding: '0.75rem 1rem',
+                borderRadius: 12,
+                background: t.inputBg,
+                border: `1px solid ${t.inputBorder}`,
+                color: t.inputColor,
+                fontSize: '0.9rem',
+                outline: 'none',
+                boxSizing: 'border-box'
+              }} />
+                  <textarea value={paperAbstract} onChange={e => setPaperAbstract(e.target.value)} placeholder="Submitted abstract" rows={5} style={{
+                width: '100%',
+                padding: '0.75rem 1rem',
+                borderRadius: 12,
+                background: t.inputBg,
+                border: `1px solid ${t.inputBorder}`,
+                color: t.inputColor,
+                fontSize: '0.9rem',
+                outline: 'none',
+                resize: 'vertical',
+                boxSizing: 'border-box'
+              }} />
+                  <button onClick={loadSimilarPapers} disabled={loadingSimilar} style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: 8,
+                padding: '0.75rem 1rem',
+                borderRadius: 8,
+                border: 'none',
+                cursor: loadingSimilar ? 'wait' : 'pointer',
+                background: 'linear-gradient(135deg,#06b6d4,#10b981)',
+                color: 'white',
+                fontWeight: 700
+              }}>
+                    {loadingSimilar && <FaSpinner size={12} style={{ animation: 'spin 0.8s linear infinite' }} />}
+                    Find similar papers
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <div style={{
+          display: 'grid',
+          gridTemplateColumns: 'repeat(auto-fit,minmax(320px,1fr))',
+          gap: '1.5rem'
+        }}>
+              <div style={card}>
+                <h3 style={{ fontSize: '0.95rem', fontWeight: 700, color: t.textPrimary, marginBottom: '1rem' }}>Track record</h3>
+                {loadingReviewer ? <p style={{ color: t.textMuted }}>Loading...</p> : trackRecord ? <div style={{ display: 'grid', gap: '0.75rem' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', gap: '1rem' }}>
+                      <span style={{ color: t.textMuted, fontSize: '0.82rem' }}>Author</span>
+                      <strong style={{ color: t.textPrimary, textAlign: 'right' }}>{trackRecord.author_name}</strong>
+                    </div>
+                    {[['Total papers', trackRecord.total_papers], ['Active years', `${trackRecord.first_year || '-'} to ${trackRecord.last_year || '-'}`], ['Collaborative papers', trackRecord.collaborative_papers || 0]].map(([label, value]) => <div key={label} style={{ display: 'flex', justifyContent: 'space-between', gap: '1rem' }}>
+                        <span style={{ color: t.textMuted, fontSize: '0.82rem' }}>{label}</span>
+                        <strong style={{ color: t.textPrimary }}>{value}</strong>
+                      </div>)}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                      {(() => {
+                    const q = trackRecord.best_quartile || 'UNRANKED';
+                    const tone = quartileTone(q);
+                    return <span style={{ padding: '0.28rem 0.6rem', borderRadius: 999, background: tone.bg, border: `1px solid ${tone.border}`, color: tone.text, fontSize: '0.75rem', fontWeight: 800 }}>{q}</span>;
+                  })()}
+                      <span style={{ color: t.textMuted, fontSize: '0.78rem' }}>{trackRecord.quartile_summary || 'No journal ranking match'}</span>
+                    </div>
+                    <p style={{ color: t.textMuted, fontSize: '0.8rem', lineHeight: 1.6 }}><strong style={{ color: t.textSecondary }}>Journals:</strong> {trackRecord.journals || 'No journals found'}</p>
+                    <p style={{ color: t.textMuted, fontSize: '0.8rem', lineHeight: 1.6 }}><strong style={{ color: t.textSecondary }}>Co-authors:</strong> {trackRecord.co_authors || 'No co-authors found'}</p>
+                  </div> : <p style={{ color: t.textMuted, fontSize: '0.875rem' }}>{trackRecordSearched ? `No MySQL track record found for ${reviewerName}.` : 'Choose a reviewer to load their publishing history.'}</p>}
+              </div>
+
+              <div style={card}>
+                <h3 style={{ fontSize: '0.95rem', fontWeight: 700, color: t.textPrimary, marginBottom: '1rem' }}>Conflict of interest</h3>
+                {conflictData ? <div style={{ display: 'grid', gap: '0.75rem' }}>
+                    {(() => {
+                  const tone = conflictTone(conflictData.overall_conflict_level);
+                  return <div style={{ padding: '0.9rem 1rem', borderRadius: 12, background: tone.bg, border: `1px solid ${tone.border}`, color: tone.text, fontWeight: 800 }}>
+                        Overall conflict: {conflictData.overall_conflict_level}
+                      </div>;
+                })()}
+                    {(conflictData.conflicts || []).map(item => {
+                  const tone = conflictTone(item.conflict_level);
+                  return <div key={item.author} style={{ padding: '0.75rem 0.85rem', borderRadius: 10, background: t.inputBg, border: `1px solid ${t.inputBorder}` }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', gap: '1rem', marginBottom: '0.25rem' }}>
+                          <span style={{ color: t.textPrimary, fontWeight: 700, fontSize: '0.86rem' }}>{item.author}</span>
+                          <span style={{ color: tone.text, fontWeight: 800, fontSize: '0.78rem' }}>{item.conflict_level}</span>
+                        </div>
+                        <p style={{ color: t.textMuted, fontSize: '0.75rem' }}>Direct {item.direct} · shared co-author {item.indirect}</p>
+                      </div>;
+                })}
+                  </div> : <p style={{ color: t.textMuted, fontSize: '0.875rem' }}>Add paper authors, then run reviewer checks.</p>}
+              </div>
+
+              <div style={card}>
+                <h3 style={{ fontSize: '0.95rem', fontWeight: 700, color: t.textPrimary, marginBottom: '1rem' }}>Similar papers</h3>
+                {similarPapers.length > 0 ? <div style={{ display: 'grid', gap: '0.65rem', maxHeight: 360, overflowY: 'auto' }}>
+                    {similarPapers.map((paper, index) => <div key={paper.paper_id || index} style={{ padding: '0.8rem 0.9rem', borderRadius: 10, background: t.inputBg, border: `1px solid ${t.inputBorder}` }}>
+                        <p style={{ color: t.textPrimary, fontWeight: 700, fontSize: '0.86rem', lineHeight: 1.4, marginBottom: '0.3rem' }}>{paper.title || 'Untitled'}</p>
+                        <p style={{ color: t.textMuted, fontSize: '0.75rem' }}>{paper.year || 'Year n/a'} · {paper.journal || 'Journal n/a'} · score {Number(paper.score || 0).toFixed(2)}</p>
+                      </div>)}
+                  </div> : <p style={{ color: t.textMuted, fontSize: '0.875rem' }}>Run a title or abstract search to surface related papers.</p>}
+              </div>
+            </div>
           </div>}
 
         {}

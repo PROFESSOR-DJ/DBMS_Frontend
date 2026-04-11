@@ -29,9 +29,6 @@ api.interceptors.response.use(
   }
 );
 
-// ─────────────────────────────────────────────────────────────────────────────
-// AUTH
-// ─────────────────────────────────────────────────────────────────────────────
 export const authApi = {
   login: async (email, password) => {
     const response = await api.post('/auth/login', { email, password });
@@ -55,27 +52,24 @@ export const authApi = {
   },
 };
 
-// ─────────────────────────────────────────────────────────────────────────────
-// PAPERS
-// ─────────────────────────────────────────────────────────────────────────────
 export const paperApi = {
   getDashboardStats: async () => {
     const response = await api.get('/stats/overview');
     return response.data;
   },
   searchPapers: async (query = '', filters = {}) => {
-      const params = new URLSearchParams();
-      if (query) params.append('q', query);
-      Object.keys(filters).forEach(key => {
-        if (filters[key]) params.append(key, filters[key]);
-      });
-      const response = await api.get(`/papers/search?${params.toString()}`);
-      return response.data;
-    },
+    const params = new URLSearchParams();
+    if (query) params.append('q', query);
+    Object.keys(filters).forEach(key => {
+      if (filters[key]) params.append(key, filters[key]);
+    });
+    const response = await api.get(`/papers/search?${params.toString()}`);
+    return response.data;
+  },
   getAllPapers: async (page = 1, limit = 20, sortBy = 'recent', filters = {}) => {
-      const response = await api.get('/papers', { params: { page, limit, sortBy, ...filters } });
-      return response.data;
-    },
+    const response = await api.get('/papers', { params: { page, limit, sortBy, ...filters } });
+    return response.data;
+  },
   getPaperById: async id => {
     const response = await api.get(`/papers/${id}`);
     return response.data;
@@ -132,9 +126,6 @@ export const paperApi = {
   },
 };
 
-// ─────────────────────────────────────────────────────────────────────────────
-// AUTHORS
-// ─────────────────────────────────────────────────────────────────────────────
 export const authorApi = {
   getAllAuthors: async (params = {}) => {
     const response = await api.get('/authors', { params });
@@ -160,19 +151,28 @@ export const authorApi = {
     const response = await api.get(`/papers/author/${authorName}`);
     return response.data;
   },
+  getAuthorInsights: async id => {
+    const response = await api.get(`/authors/${id}/insights`);
+    return response.data;
+  },
 };
 
-// ─────────────────────────────────────────────────────────────────────────────
-// STATS — includes all new procedure / trigger endpoints
-// ─────────────────────────────────────────────────────────────────────────────
+export const journalApi = {
+  searchJournals: async (params = {}) => {
+    const response = await api.get('/journals/search', { params });
+    return response.data;
+  },
+  getJournalById: async id => {
+    const response = await api.get(`/journals/${encodeURIComponent(id)}`);
+    return response.data;
+  },
+};
+
 export const statsApi = {
-  // Overview dashboard
   getOverview: async () => {
     const response = await api.get('/stats/overview');
     return response.data;
   },
-
-  // Convenience shortcuts used by Dashboard
   getTopAuthors: async () => {
     const response = await api.get('/stats/overview');
     return response.data.analytics.top_authors;
@@ -185,53 +185,35 @@ export const statsApi = {
     const response = await api.get('/stats/year');
     return response.data.papers_per_year;
   },
-
-  // ── Stored procedure: GetAuthorImpact() ──────────────────────────────────
-  // Returns all authors ordered by total_papers DESC
   getAuthorImpact: async (limit = 50) => {
     const response = await api.get('/stats/authors', { params: { limit } });
-    return response.data; // { authors, count, source, procedure }
+    return response.data;
   },
-
-  // ── Stored procedure: GetTrendingPapers(year, limit) ─────────────────────
-  // Papers published from `year` onwards, ranked by author_count DESC
   getTrendingPapers: async (year, limit = 10, options = {}) => {
     const params = {};
     if (year) params.year = year;
     if (limit) params.limit = limit;
     if (options.curated !== undefined) params.curated = options.curated;
     const response = await api.get('/stats/trending', { params });
-    return response.data; // { papers, count, from_year, procedure }
+    return response.data;
   },
-
-  // ── Stored procedure: GetIncompletePapers() ──────────────────────────────
-  // Papers missing abstract, journal_id, or publish_year
   getIncompletePapers: async (limit = 6, offset = 0) => {
     const response = await api.get('/stats/incomplete-papers', { params: { limit, offset } });
-    return response.data; // { papers, count, procedure }
+    return response.data;
   },
-
-  // ── Stored procedure: GetActiveUsers() ───────────────────────────────────
-  // Users ordered by last_login DESC (last_login maintained by trg_update_last_login)
   getActiveUsers: async (limit = 6, offset = 0) => {
     const response = await api.get('/stats/active-users', { params: { limit, offset } });
-    return response.data; // { users, count, procedure, trigger }
+    return response.data;
   },
-
-  // ── Trigger: trg_mark_important_paper ────────────────────────────────────
-  // Papers auto-flagged is_important=TRUE when author_count >= 5
   getImportantPapers: async (limit = 20, offset = 0, options = {}) => {
     const params = { limit, offset };
     if (options.curated !== undefined) params.curated = options.curated;
     const response = await api.get('/stats/important-papers', { params });
-    return response.data; // { papers, count }
+    return response.data;
   },
-
-  // ── Trigger: trg_update_journal_count ────────────────────────────────────
-  // journals.paper_count maintained automatically; no GROUP BY needed
   getJournalPopularity: async (limit = 10) => {
     const response = await api.get('/stats/journal-popularity', { params: { limit } });
-    return response.data; // { journals, count, trigger }
+    return response.data;
   },
 };
 
