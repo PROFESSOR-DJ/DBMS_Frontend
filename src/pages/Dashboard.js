@@ -4,7 +4,6 @@ import { statsApi } from '../api/authApi';
 import StatCard from '../components/StatCard';
 import { PapersPerYearChart, TopJournalsChart, AuthorPublicationsChart } from '../components/Charts';
 import SearchBar from '../components/SearchBar';
-import TrendingPapersSection from '../components/TrendingPapersSection';
 import {
   FaSearch, FaChartLine, FaDatabase, FaArrowRight,
   FaFileAlt, FaUsers, FaNewspaper,
@@ -173,17 +172,16 @@ const Dashboard = () => {
 
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(200px,1fr))', gap: '1rem', marginBottom: '1.5rem' }}>
             {[
-              { db: 'MySQL', role: 'Structured records', detail: `${stats.totalPapers?.toLocaleString()} papers · ${stats.uniqueAuthors?.toLocaleString()} authors`, color: '#06b6d4', note: 'Author-paper links, triggers, stored procedures' },
-              { db: 'MongoDB', role: 'Full-text search', detail: `${stats.totalJournals?.toLocaleString()} journals · avg ${stats.avgCitations || 0} citations`, color: '#10b981', note: 'Flexible metadata, keyword discovery, aggregations' },
-              { db: 'Neo4j', role: 'Collaboration graph', detail: `${stats.rankedJournals?.toLocaleString()} ranked venues`, color: '#a855f7', note: 'Co-authorship networks, shortest path, centrality' },
+              { type: 'Primary Registry', role: 'Structured records', detail: `${stats.totalPapers?.toLocaleString()} papers · ${stats.uniqueAuthors?.toLocaleString()} authors`, color: '#06b6d4' },
+              { type: 'Discovery Engine', role: 'Full-text search', detail: `${stats.totalJournals?.toLocaleString()} journals · ${stats.uniqueAuthors?.toLocaleString()} active authors`, color: '#10b981' },
+              { type: 'Relationship Map', role: 'Collaboration graph', detail: `${stats.totalPapers?.toLocaleString()} linked records`, color: '#a855f7' },
             ].map(item => (
-              <div key={item.db} style={{ padding: '1.1rem', borderRadius: 16, background: `${item.color}10`, border: `1px solid ${item.color}28` }}>
+              <div key={item.type} style={{ padding: '1.1rem', borderRadius: 16, background: `${item.color}10`, border: `1px solid ${item.color}28` }}>
                 <div style={{ fontSize: '0.7rem', fontWeight: 800, color: item.color, textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '0.35rem' }}>
-                  {item.db}
+                  {item.type}
                 </div>
                 <div style={{ fontSize: '1rem', fontWeight: 800, color: t.textPrimary, marginBottom: '0.3rem' }}>{item.role}</div>
-                <div style={{ fontSize: '0.78rem', color: item.color, fontWeight: 600, marginBottom: '0.3rem' }}>{item.detail}</div>
-                <div style={{ fontSize: '0.72rem', color: t.textMuted, lineHeight: 1.5 }}>{item.note}</div>
+                <div style={{ fontSize: '0.78rem', color: item.color, fontWeight: 600 }}>{item.detail}</div>
               </div>
             ))}
           </div>
@@ -191,7 +189,7 @@ const Dashboard = () => {
           {stats.importantPapers.length > 0 && (
             <div>
               <p style={{ fontSize: '0.78rem', color: t.textMuted, marginBottom: '0.75rem', fontWeight: 600 }}>
-                HIGHLY COLLABORATIVE PAPERS — flagged by <code style={{ color: t.accent }}>trg_mark_important_paper</code>
+                HIGHLY COLLABORATIVE PAPERS
               </p>
               <div style={{ display: 'grid', gap: '0.55rem' }}>
                 {stats.importantPapers.slice(0, 4).map(paper => (
@@ -230,89 +228,8 @@ const Dashboard = () => {
           </div>
         )}
 
-        {/* ══ NEW: Trending Papers (GetTrendingPapers procedure) ════════ */}
-        <TrendingPapersSection isDark={isDark} t={t} />
-
-        {/* ══ NEW: Highly Collaborative Papers (trg_mark_important_paper) */}
 
         {/* ── Platform Overview cards ───────────────────────────────────── */}
-        <div className="animate-fade-in" style={{ marginBottom: '2.5rem' }}>
-          <SectionLabel icon={FaDatabase} text="Platform Overview" />
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(300px,1fr))',
-                        gap: '1.5rem' }}>
-            {[
-              {
-                label: 'Core Platform', sub: 'Structured research records',
-                grad: 'linear-gradient(135deg,#06b6d4,#0ea5e9)', glow: 'rgba(6,182,212,0.4)',
-                border: 'rgba(6,182,212,0.2)', borderH: 'rgba(6,182,212,0.4)', glowH: 'rgba(6,182,212,0.1)',
-                rows: [['Purpose','Reliable structured data'],['Strengths','Consistency and integrity'],
-                       ['Used For','Users and publication links']],
-                dbStats: [['Total Papers', stats.totalPapers],['Active Authors', stats.uniqueAuthors]],
-              },
-              {
-                label: 'Discovery Platform', sub: 'Fast exploration and insights',
-                grad: 'linear-gradient(135deg,#10b981,#06b6d4)', glow: 'rgba(16,185,129,0.4)',
-                border: 'rgba(16,185,129,0.2)', borderH: 'rgba(16,185,129,0.4)', glowH: 'rgba(16,185,129,0.1)',
-                rows: [['Purpose','Research discovery'],['Strengths','Flexible and scalable'],
-                       ['Used For','Metadata and analytics']],
-                dbStats: [['Unique Journals', stats.totalJournals],['Coverage','Title, abstract, year']],
-              },
-              {
-                label: 'Graph Intelligence', sub: 'Collaboration and venue connectivity',
-                grad: 'linear-gradient(135deg,#a855f7,#6366f1)', glow: 'rgba(168,85,247,0.4)',
-                border: 'rgba(168,85,247,0.2)', borderH: 'rgba(168,85,247,0.4)', glowH: 'rgba(168,85,247,0.1)',
-                rows: [['Purpose','Collaboration reasoning'],['Strengths','Multi-hop traversal and venue context'],
-                       ['Used For','Co-author structure and ranked journal overlays']],
-                dbStats: [['Ranked Journals', stats.rankedJournals],['Best Use','Graph exploration']],
-              },
-            ].map(({ label, sub, grad, glow, border, borderH, glowH, rows, dbStats }) => (
-              <div key={label}
-                style={{ background: t.cardBg, backdropFilter: 'blur(16px)',
-                         border: `1px solid ${border}`, borderRadius: 18,
-                         padding: '1.5rem', boxShadow: t.cardShadow, transition: 'all 0.3s ease' }}
-                onMouseEnter={e => {
-                  e.currentTarget.style.borderColor = borderH;
-                  e.currentTarget.style.boxShadow = `0 8px 32px rgba(0,0,0,0.3),0 0 20px ${glowH}`;
-                  e.currentTarget.style.transform = 'translateY(-3px)';
-                }}
-                onMouseLeave={e => {
-                  e.currentTarget.style.borderColor = border;
-                  e.currentTarget.style.boxShadow = t.cardShadow;
-                  e.currentTarget.style.transform = 'translateY(0)';
-                }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: '1.25rem' }}>
-                  <div style={{ width: 44, height: 44, borderRadius: 12, background: grad,
-                                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                boxShadow: `0 4px 14px ${glow}` }}>
-                    <FaDatabase size={18} color="white" />
-                  </div>
-                  <div>
-                    <h3 style={{ fontSize: '1rem', fontWeight: 700, color: t.textPrimary }}>{label}</h3>
-                    <p style={{ fontSize: '0.78rem', color: t.textMuted }}>{sub}</p>
-                  </div>
-                </div>
-                {rows.map(([k, v]) => (
-                  <div key={k} style={{ display: 'flex', justifyContent: 'space-between',
-                                        padding: '0.5rem 0', borderBottom: `1px solid ${t.divider}` }}>
-                    <span style={{ fontSize: '0.82rem', color: t.textMuted }}>{k}</span>
-                    <span style={{ fontSize: '0.82rem', fontWeight: 600, color: t.textSecondary }}>{v}</span>
-                  </div>
-                ))}
-                {dbStats.map(([k, v]) => (
-                  <div key={k} style={{ display: 'flex', justifyContent: 'space-between',
-                                        alignItems: 'center', paddingTop: '0.75rem' }}>
-                    <span style={{ fontSize: '0.82rem', color: t.textMuted }}>{k}</span>
-                    <span style={{ fontSize: '1.3rem', fontWeight: 800, background: grad,
-                                   WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent',
-                                   backgroundClip: 'text' }}>
-                      {typeof v === 'number' ? v.toLocaleString() : v}
-                    </span>
-                  </div>
-                ))}
-              </div>
-            ))}
-          </div>
-        </div>
 
         {/* ══ NEW: Data Quality & Activity drawer (procedures + trigger) ═ */}
 

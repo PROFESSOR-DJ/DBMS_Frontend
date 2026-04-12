@@ -150,12 +150,6 @@ const Authors = () => {
                 <p style={{ color: t.textMuted, fontSize: '0.875rem', margin: 0 }}>
                   Researcher discovery, publication strength, topic signals, and collaboration context
                 </p>
-                {dataSource === 'table' && (
-                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '0.15rem 0.55rem', borderRadius: 999, background: 'rgba(6,182,212,0.12)', border: '1px solid rgba(6,182,212,0.25)', fontSize: '0.68rem', fontWeight: 700, color: '#22d3ee' }}>
-                    <FaDatabase size={8} />
-                    mysql + mongodb + neo4j
-                  </span>
-                )}
               </div>
             </div>
             <button onClick={() => navigate('/authors/new')} style={{ display: 'inline-flex', alignItems: 'center', gap: 7, padding: '0.6rem 1.1rem', borderRadius: 11, background: t.accentGrad, border: 'none', color: 'white', fontWeight: 700, fontSize: '0.875rem', cursor: 'pointer', boxShadow: `0 4px 14px ${t.accentGlow}` }}>
@@ -299,7 +293,7 @@ const Authors = () => {
                   <div style={{ marginBottom: '1rem' }}>
                     <div style={{ color: t.textPrimary, fontSize: '1.05rem', fontWeight: 800 }}>{cleanDisplayName(authorInsights.author.author_name)}</div>
                     <div style={{ marginTop: '0.3rem', color: t.textMuted, fontSize: '0.78rem' }}>
-                      {authorInsights.mysql.paper_count} MySQL papers • {authorInsights.mongodb.total_citations || 0} citations • {authorInsights.neo4j.coauthors?.length || 0} co-authors
+                      {authorInsights.mysql.paper_count} MySQL papers • {authorInsights.mongodb.total_citations || 0} citations • {authorInsights.neo4j.coauthors?.length || 0} co-authors • {authorInsights.neo4j.first_authored_count || 0} first-authored
                     </div>
                   </div>
 
@@ -309,6 +303,7 @@ const Authors = () => {
                       ['Avg citations', authorInsights.mongodb.avg_citations ?? 0, '#10b981'],
                       ['First year', authorInsights.mongodb.first_year || '—', '#f59e0b'],
                       ['Collab score', authorInsights.neo4j.collaboration_strength || 0, '#a855f7'],
+                      ['First authored', authorInsights.neo4j.first_authored_count || 0, '#ef4444'],
                     ].map(([label, value, color]) => (
                       <div key={label} style={{ padding: '0.8rem', borderRadius: 14, background: t.inputBg, border: `1px solid ${t.inputBorder}` }}>
                         <div style={{ color: t.textMuted, fontSize: '0.72rem', fontWeight: 700, textTransform: 'uppercase' }}>{label}</div>

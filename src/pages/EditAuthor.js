@@ -46,11 +46,11 @@ const EditAuthor = () => {
   };
   if (loading) {
     return <div className="flex justify-center items-center min-h-screen bg-gray-50">
-                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600"></div>
-            </div>;
+      <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600"></div>
+    </div>;
   }
   return <div className="min-h-screen bg-gray-50 py-8 px-4">
-            <AuthorForm title="Edit Author" author={author} onSubmit={handleSubmit} />
-        </div>;
+    <AuthorForm title="Edit Author" author={author} onSubmit={handleSubmit} />
+  </div>;
 };
 export default EditAuthor;

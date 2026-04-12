@@ -109,48 +109,9 @@ const PaperCard = ({ paper }) => {
             </h3>
           </Link>
 
-          <button
-            onClick={toggleBookmark}
-            style={{
-              color: isBookmarked ? '#f59e0b' : t.textMuted,
-              background: 'none',
-              border: 'none',
-              cursor: 'pointer',
-              transition: 'color 0.2s ease, transform 0.2s ease',
-              transform: isBookmarked ? 'scale(1.12)' : 'scale(1)',
-            }}
-            aria-label="Bookmark">
-            {isBookmarked ? <FaBookmark size={16} /> : <FaRegBookmark size={16} />}
-          </button>
         </div>
 
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.45rem', marginBottom: '0.75rem' }}>
-          {isPotentiallyCollaborative && (
-            <span
-              title="Marked as potentially collaborative by trg_mark_important_paper when author_count >= 5"
-              style={{
-                ...badgeBase,
-                color: '#f59e0b',
-                background: 'rgba(245,158,11,0.14)',
-                border: '1px solid rgba(245,158,11,0.35)',
-            }}>
-              <FaStar size={9} />
-              Potentially Collaborative
-            </span>
-          )}
-          {isIncomplete && (
-            <span
-              title="Matches the GetIncompletePapers logic because abstract, journal, or year is missing"
-              style={{
-                ...badgeBase,
-                color: '#10b981',
-                background: 'rgba(16,185,129,0.14)',
-                border: '1px solid rgba(16,185,129,0.35)',
-              }}>
-              <FaExclamationTriangle size={9} />
-              Incomplete
-            </span>
-          )}
           {paper.has_full_text && (
             <span style={{
               ...badgeBase,

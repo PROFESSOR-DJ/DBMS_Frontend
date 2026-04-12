@@ -5,7 +5,7 @@ import { cleanDisplayName } from '../utils/cleanName';
 import { graphApi } from '../api/graphApi';
 import { useTheme } from '../context/ThemeContext';
 import { getTheme } from '../utils/theme';
-import { FaProjectDiagram, FaUser, FaNewspaper, FaDatabase, FaSearch, FaSpinner, FaNetworkWired, FaChartBar, FaArrowRight, FaTimes, FaInfoCircle } from 'react-icons/fa';
+import { FaProjectDiagram, FaUser, FaNewspaper, FaDatabase, FaSearch, FaSpinner, FaNetworkWired, FaChartBar, FaArrowRight, FaTimes, FaInfoCircle, FaRoute } from 'react-icons/fa';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell, PieChart, Pie, Legend } from 'recharts';
 import toast from 'react-hot-toast';
 
@@ -86,6 +86,7 @@ const ForceGraph = ({ author, coAuthors, t }) => {
     />
   );
 };
+
 
 const COLORS = ['#6366f1', '#a855f7', '#06b6d4', '#10b981', '#f59e0b', '#ef4444', '#ec4899', '#8b5cf6', '#14b8a6', '#f97316'];
 const quartileTone = quartile => ({
@@ -180,24 +181,106 @@ const GraphExplorer = () => {
   const [networkData, setNetworkData] = useState(null);
   const [loadingNetwork, setLoadingNetwork] = useState(false);
   const [activeTab, setActiveTab] = useState('overview');
-  const [reviewerName, setReviewerName] = useState('');
-  const [reviewerGraphName, setReviewerGraphName] = useState('');
-  const [reviewerSearch, setReviewerSearch] = useState('');
-  const [reviewerResults, setReviewerResults] = useState([]);
-  const [reviewerSearching, setReviewerSearching] = useState(false);
-  const [reviewerSelectionLocked, setReviewerSelectionLocked] = useState(false);
-  const [paperAuthors, setPaperAuthors] = useState('');
-  const [paperTitle, setPaperTitle] = useState('');
-  const [paperAbstract, setPaperAbstract] = useState('');
-  const [trackRecord, setTrackRecord] = useState(null);
-  const [trackRecordSearched, setTrackRecordSearched] = useState(false);
-  const [conflictData, setConflictData] = useState(null);
-  const [similarPapers, setSimilarPapers] = useState([]);
-  const [loadingReviewer, setLoadingReviewer] = useState(false);
-  const [loadingSimilar, setLoadingSimilar] = useState(false);
+  const [pathFromSearching, setPathFromSearching] = useState(false);
+  const [pathToSearching, setPathToSearching] = useState(false);
+  const [pathFrom, setPathFrom] = useState('');
+  const [pathTo, setPathTo] = useState('');
+  const [pathFromResults, setPathFromResults] = useState([]);
+  const [pathToResults, setPathToResults] = useState([]);
+  const [pathResult, setPathResult] = useState(null);
+  const [loadingPath, setLoadingPath] = useState(false);
+
+  const loadAuthorNetwork = async name => {
+    setSelectedAuthor(name);
+    setSearchResults([]);
+    setAuthorSearch('');
+    setLoadingNetwork(true);
+    setActiveTab('network');
+    try {
+      const data = await graphApi.getAuthorNetwork(name, 30);
+      setNetworkData(data);
+    } catch {
+      toast.error('Failed to load author network');
+    } finally {
+      setLoadingNetwork(false);
+    }
+  };
+
+  useEffect(() => {
+    if (activeTab !== 'pathfinder') return;
+    const q = pathFrom.trim();
+    if (q.length < 2) {
+      setPathFromResults([]);
+      return;
+    }
+
+    const timer = setTimeout(async () => {
+      setPathFromSearching(true);
+      try {
+        const data = await graphApi.searchAuthors(q);
+        setPathFromResults(data.authors || []);
+      } catch {
+        setPathFromResults([]);
+      } finally {
+        setPathFromSearching(false);
+      }
+    }, 400);
+    return () => clearTimeout(timer);
+  }, [pathFrom, activeTab]);
+
+  useEffect(() => {
+    if (activeTab !== 'pathfinder') return;
+    const q = pathTo.trim();
+    if (q.length < 2) {
+      setPathToResults([]);
+      return;
+    }
+
+    const timer = setTimeout(async () => {
+      setPathToSearching(true);
+      try {
+        const data = await graphApi.searchAuthors(q);
+        setPathToResults(data.authors || []);
+      } catch {
+        setPathToResults([]);
+      } finally {
+        setPathToSearching(false);
+      }
+    }, 400);
+    return () => clearTimeout(timer);
+  }, [pathTo, activeTab]);
+
+  const findPath = async () => {
+    if (!pathFrom.trim() || !pathTo.trim()) {
+      toast.error('Enter both author names to find a path.');
+      return;
+    }
+    setLoadingPath(true);
+    setPathResult(null);
+    try {
+      const data = await graphApi.findResearchPath(pathFrom, pathTo);
+      setPathResult(data);
+    } catch {
+      toast.error('Path search failed. Try different names.');
+    } finally {
+      setLoadingPath(false);
+    }
+  };
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const authorParam = params.get('author');
+    const tabParam = params.get('tab');
+    if (tabParam) setActiveTab(tabParam);
+    if (authorParam && tabParam === 'network') {
+      loadAuthorNetwork(authorParam);
+    }
+  }, []); // runs once on mount
+
   useEffect(() => {
     checkHealth();
   }, []);
+
   const checkHealth = async () => {
     try {
       const h = await graphApi.getHealth();
@@ -205,26 +288,48 @@ const GraphExplorer = () => {
       if (h.status === 'connected') loadOverviewData();
     } catch {
       setNeo4jOnline(false);
-      setLoadingStats(false);
     }
   };
+
+  const toNum = (val) => {
+    if (val && typeof val === 'object' && 'low' in val) return Number(val.low);
+    const n = Number(val);
+    return isNaN(n) ? 0 : n;
+  };
+
   const loadOverviewData = async () => {
     setLoadingStats(true);
     try {
-      const [s, a, j, y, src] = await Promise.allSettled([graphApi.getStats(), graphApi.getTopAuthors(10), graphApi.getTopJournals(10), graphApi.getPapersByYear(), graphApi.getPapersBySource()]);
+      const [s, a, j, y, src] = await Promise.allSettled([
+        graphApi.getStats(),
+        graphApi.getTopAuthors(10),
+        graphApi.getTopJournals(10),
+        graphApi.getPapersByYear(),
+        graphApi.getPapersBySource()
+      ]);
+
       if (s.status === 'fulfilled') setStats(s.value.stats);
       if (a.status === 'fulfilled') setTopAuthors(a.value.authors || []);
       if (j.status === 'fulfilled') setTopJournals(j.value.journals || []);
-      if (y.status === 'fulfilled') setYearData((y.value.papersPerYear || []).map(d => ({
-        year: String(d.year),
-        count: d.paperCount
-      })));
-      if (src.status === 'fulfilled') setSourceData((src.value.sources || []).map(d => ({
-        name: d.source,
-        value: d.paperCount
-      })));
+
+      if (y.status === 'fulfilled') {
+        const rawYears = y.value.papersPerYear || [];
+        setYearData(rawYears.map(d => ({
+          year: toNum(d.year),
+          count: toNum(d.paperCount)
+        })).filter(d => d.year > 0));
+      }
+
+      if (src.status === 'fulfilled') {
+        const records = src.value.sources || [];
+        setSourceData(records.map(r => ({
+          name: r.source,
+          value: toNum(r.paperCount),
+        })));
+      }
     } catch (err) {
-      toast.error('Failed to load graph data');
+      console.error('Overview data error:', err);
+      toast.error('Failed to load graph stats items');
     } finally {
       setLoadingStats(false);
     }
@@ -247,120 +352,6 @@ const GraphExplorer = () => {
     }, 400);
     return () => clearTimeout(t);
   }, [authorSearch]);
-  useEffect(() => {
-    if (activeTab !== 'reviewer') return;
-    if (reviewerSelectionLocked) return;
-
-    const query = reviewerSearch.trim().replace(/^['"]+|['"]+$/g, '');
-    if (query.length < 2) {
-      setReviewerResults([]);
-      return;
-    }
-
-    const timer = setTimeout(async () => {
-      setReviewerSearching(true);
-      try {
-        const data = await graphApi.searchAuthors(query);
-        setReviewerResults(data.authors || []);
-      } catch {
-        setReviewerResults([]);
-      } finally {
-        setReviewerSearching(false);
-      }
-    }, 300);
-
-    return () => clearTimeout(timer);
-  }, [activeTab, reviewerSearch, reviewerSelectionLocked]);
-  const loadAuthorNetwork = async name => {
-    setSelectedAuthor(name);
-    setSearchResults([]);
-    setAuthorSearch('');
-    setLoadingNetwork(true);
-    setActiveTab('network');
-    try {
-      const data = await graphApi.getAuthorNetwork(name, 30);
-      setNetworkData(data);
-    } catch {
-      toast.error('Failed to load author network');
-    } finally {
-      setLoadingNetwork(false);
-    }
-  };
-  const parsePaperAuthors = () => paperAuthors.split(',').map(author => author.trim()).filter(Boolean);
-  const cleanReviewerDisplayName = value => String(value || '').trim().replace(/^[\s'"[\]]+|[\s'"[\]]+$/g, '').replace(/\s+/g, ' ');
-  const loadReviewerTools = async (name, displayName) => {
-    const reviewerForGraph = String(name || reviewerGraphName || reviewerName).trim();
-    const reviewerDisplayName = cleanReviewerDisplayName(displayName || reviewerForGraph);
-    const authors = parsePaperAuthors();
-    if (!reviewerDisplayName) {
-      toast.error('Choose or enter a reviewer name');
-      return;
-    }
-
-    setReviewerName(reviewerDisplayName);
-    setReviewerGraphName(reviewerForGraph || reviewerDisplayName);
-    setReviewerSearch(reviewerDisplayName);
-    setReviewerResults([]);
-    setReviewerSearching(false);
-    setReviewerSelectionLocked(true);
-    setLoadingReviewer(true);
-    setTrackRecordSearched(false);
-
-    try {
-      const requests = [graphApi.getAuthorTrackRecord(reviewerDisplayName)];
-      if (authors.length > 0) {
-        requests.push(graphApi.checkConflictOfInterest(reviewerForGraph || reviewerDisplayName, authors));
-      }
-
-      const [track, conflict] = await Promise.allSettled(requests);
-      setTrackRecordSearched(true);
-      if (track.status === 'fulfilled') {
-        setTrackRecord(track.value.track_record || null);
-      } else {
-        setTrackRecord(null);
-        toast.error('Author track record could not be loaded');
-      }
-
-      if (authors.length > 0) {
-        if (conflict.status === 'fulfilled') {
-          setConflictData(conflict.value);
-        } else {
-          setConflictData(null);
-          toast.error('Conflict check could not be loaded');
-        }
-      } else {
-        setConflictData(null);
-      }
-    } finally {
-      setLoadingReviewer(false);
-    }
-  };
-  const loadSimilarPapers = async () => {
-    if ([paperTitle, paperAbstract].filter(Boolean).join(' ').trim().length < 10) {
-      toast.error('Add a title or abstract with at least 10 characters');
-      return;
-    }
-
-    setLoadingSimilar(true);
-    try {
-      const data = await graphApi.findSimilarPapers({
-        title: paperTitle,
-        abstract: paperAbstract,
-        limit: 5
-      });
-      setSimilarPapers(data.similar_papers || []);
-    } catch {
-      setSimilarPapers([]);
-      toast.error('Similar papers could not be loaded');
-    } finally {
-      setLoadingSimilar(false);
-    }
-  };
-  const conflictTone = level => ({
-    HIGH: { bg: 'rgba(239,68,68,0.16)', border: 'rgba(239,68,68,0.32)', text: '#f87171' },
-    MEDIUM: { bg: 'rgba(245,158,11,0.16)', border: 'rgba(245,158,11,0.32)', text: '#fbbf24' },
-    NONE: { bg: 'rgba(16,185,129,0.16)', border: 'rgba(16,185,129,0.32)', text: '#34d399' }
-  }[level] || { bg: 'rgba(148,163,184,0.16)', border: 'rgba(148,163,184,0.28)', text: '#cbd5e1' });
   const card = {
     background: t.cardBg,
     backdropFilter: 'blur(16px)',
@@ -568,7 +559,6 @@ NEO4J_PASSWORD=your_password`}
           <StatPill label="Papers" value={stats?.papers} sub="nodes in graph" color="#6366f1" loading={loadingStats} />
           <StatPill label="Authors" value={stats?.authors} sub="unique researchers" color="#a855f7" loading={loadingStats} />
           <StatPill label="Journals" value={stats?.journals} sub="publication venues" color="#06b6d4" loading={loadingStats} />
-          <StatPill label="Ranked Journals" value={stats?.ranked_journals} sub={loadingStats ? '' : `Q1: ${stats?.q1_journals || 0} • OA: ${stats?.open_access_journals || 0}`} color="#22c55e" loading={loadingStats} />
           <StatPill label="Sources" value={stats?.sources} sub="data origins" color="#10b981" loading={loadingStats} />
           <StatPill label="Relationships" value={stats?.relationships} sub="graph edges total" color="#f59e0b" loading={loadingStats} />
         </div>
@@ -590,13 +580,13 @@ NEO4J_PASSWORD=your_password`}
           label: 'Author Network',
           icon: <FaNetworkWired size={12} />
         }, {
-          id: 'reviewer',
-          label: 'Paper Similarity',
-          icon: <FaSearch size={12} />
-        }, {
           id: 'sources',
           label: 'Data Sources',
           icon: <FaDatabase size={12} />
+        }, {
+          id: 'pathfinder',
+          label: 'Connect Authors',
+          icon: <FaRoute size={12} />
         }].map(tab => <button key={tab.id} onClick={() => setActiveTab(tab.id)} style={{
           display: 'inline-flex',
           alignItems: 'center',
@@ -787,7 +777,7 @@ NEO4J_PASSWORD=your_password`}
           const peakYear = sortedYearData.reduce((best, item) => !best || item.count > best.count ? item : best, null);
           const totalYearPapers = sortedYearData.reduce((sum, item) => sum + item.count, 0);
           const averagePerActiveYear = Math.round(totalYearPapers / sortedYearData.length);
-          const recentYearData = sortedYearData.slice(-5).reverse();
+          const recentYearData = sortedYearData.slice(-10).reverse();
           const previousYear = sortedYearData.length > 1 ? sortedYearData[sortedYearData.length - 2] : null;
           const yearlyChange = previousYear ? latestYear.count - previousYear.count : null;
           return <div style={{
@@ -848,7 +838,7 @@ NEO4J_PASSWORD=your_password`}
                     lineHeight: 1.1,
                     marginBottom: '0.35rem'
                   }}>
-                            {typeof item.value === 'number' ? item.value.toLocaleString() : item.value}
+                            {item.value !== null && item.value !== undefined ? (typeof item.value === 'object' ? JSON.stringify(item.value) : item.value.toLocaleString()) : '—'}
                           </p>
                           <p style={{
                     fontSize: '0.78rem',
@@ -859,148 +849,15 @@ NEO4J_PASSWORD=your_password`}
                           </p>
                         </div>)}
                     </div>
-
-                    <div style={{
-                background: 'linear-gradient(180deg, rgba(168,85,247,0.1), rgba(99,102,241,0.05))',
-                border: '1px solid rgba(168,85,247,0.18)',
-                borderRadius: 18,
-                padding: '1rem 1.1rem'
-              }}>
-                      <div style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'space-between',
-                  marginBottom: '0.9rem',
-                  gap: '0.75rem',
-                  flexWrap: 'wrap'
-                }}>
-                        <h4 style={{
-                    fontSize: '0.9rem',
-                    fontWeight: 700,
-                    color: t.textPrimary
-                  }}>Recent Publication Years</h4>
-                        <span style={{
-                    fontSize: '0.72rem',
-                    color: '#c4b5fd',
-                    fontWeight: 700,
-                    textTransform: 'uppercase',
-                    letterSpacing: '0.08em'
-                  }}>Last 5 entries</span>
-                      </div>
-                      <div style={{
-                  display: 'flex',
-                  flexDirection: 'column',
-                  gap: '0.7rem'
-                }}>
-                        {recentYearData.map((item, index) => {
-                    const scaleBase = peakYear?.count || item.count || 1;
-                    const width = Math.max(item.count / scaleBase * 100, 8);
-                    return <div key={item.year} style={{
-                      padding: '0.75rem 0.8rem',
-                      background: 'rgba(15,23,42,0.25)',
-                      border: '1px solid rgba(255,255,255,0.06)',
-                      borderRadius: 14
-                    }}>
-                              <div style={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'space-between',
-                        marginBottom: '0.45rem',
-                        gap: '0.75rem'
-                      }}>
-                                <span style={{
-                          fontSize: '0.88rem',
-                          fontWeight: 700,
-                          color: t.textPrimary
-                        }}>{item.year}</span>
-                                <span style={{
-                          fontSize: '0.82rem',
-                          color: COLORS[index % COLORS.length],
-                          fontWeight: 700
-                        }}>
-                                  {item.count.toLocaleString()} papers
-                                </span>
-                              </div>
-                              <div style={{
-                        height: 8,
-                        borderRadius: 999,
-                        background: 'rgba(255,255,255,0.06)',
-                        overflow: 'hidden'
-                      }}>
-                                <div style={{
-                          width: `${width}%`,
-                          height: '100%',
-                          borderRadius: 999,
-                          background: `linear-gradient(90deg, ${COLORS[index % COLORS.length]}, #a855f7)`
-                        }} />
-                              </div>
-                            </div>;
-                  })}
-                      </div>
-                    </div>
                   </div>
-                </div>;
+                </div>
         })()}
-
-            {}
-            <div style={{
-          ...card,
-          background: 'rgba(168,85,247,0.06)',
-          border: '1px solid rgba(168,85,247,0.2)'
-        }}>
-              <h3 style={{
-            fontSize: '0.9rem',
-            fontWeight: 700,
-            color: '#d8b4fe',
-            marginBottom: '1rem',
-            display: 'flex',
-            alignItems: 'center',
-            gap: 8
-          }}>
-                <FaInfoCircle size={13} style={{
-              color: '#a855f7'
-            }} /> Graph Schema
-              </h3>
-              <div style={{
-            display: 'grid',
-            gridTemplateColumns: 'repeat(auto-fit,minmax(200px,1fr))',
-            gap: '0.75rem'
-          }}>
-                {[{
-              rel: '(Author) ──WROTE──▶ (Paper)',
-              color: '#a855f7'
-            }, {
-              rel: '(Paper) ──PUBLISHED_IN──▶ (Journal)',
-              color: '#6366f1'
-            }, {
-              rel: '(Paper) ──FROM_SOURCE──▶ (Source)',
-              color: '#06b6d4'
-            }, {
-              rel: '(Paper) ──PUBLISHED_YEAR──▶ (Year)',
-              color: '#10b981'
-            }].map(({
-              rel,
-              color
-            }) => <div key={rel} style={{
-              background: `${color}10`,
-              border: `1px solid ${color}25`,
-              borderRadius: 10,
-              padding: '0.6rem 0.85rem'
-            }}>
-                    <code style={{
-                fontSize: '0.75rem',
-                color,
-                fontFamily: 'monospace'
-              }}>{rel}</code>
-                  </div>)}
-              </div>
-            </div>
-          </div>}
+      </div>}
 
         {}
         {activeTab === 'network' && <div className="animate-fade-in">
 
-            {}
+            {/* Search Card */}
             <div style={{
           ...card,
           marginBottom: '1.5rem'
@@ -1045,7 +902,7 @@ NEO4J_PASSWORD=your_password`}
             }} />}
               </div>
 
-              {}
+              {/* Search Results */}
               {searchResults.length > 0 && <div style={{
             marginTop: '0.5rem',
             background: t.cardBg,
@@ -1093,7 +950,7 @@ NEO4J_PASSWORD=your_password`}
                 </div>}
             </div>
 
-            {}
+            {/* Loading State */}
             {loadingNetwork && <div style={{
           display: 'flex',
           justifyContent: 'center',
@@ -1118,7 +975,7 @@ NEO4J_PASSWORD=your_password`}
               </div>}
 
             {networkData && !loadingNetwork && <div>
-                {}
+                {/* Profile Header */}
                 <div style={{
             ...card,
             marginBottom: '1.25rem',
@@ -1191,7 +1048,6 @@ NEO4J_PASSWORD=your_password`}
                     </p>
                   </div>
 
-                  {}
                   <div style={card}>
                     <h3 style={{
                 fontSize: '0.95rem',
@@ -1251,303 +1107,6 @@ NEO4J_PASSWORD=your_password`}
               </div>}
           </div>}
 
-        {}
-        {activeTab === 'reviewer' && <div className="animate-fade-in">
-            <div style={{
-          display: 'grid',
-          gridTemplateColumns: 'minmax(0,1fr)',
-          gap: '1.5rem',
-          marginBottom: '1.5rem'
-        }}>
-              <div style={card}>
-                {sectionTitle('Paper Similarity', <FaSearch size={14} color="white" />)}
-                <div style={{ display: 'grid', gap: '0.8rem' }}>
-                  <input type="text" value={paperTitle} onChange={e => setPaperTitle(e.target.value)} placeholder="Submitted paper title" style={{
-                width: '100%',
-                padding: '0.75rem 1rem',
-                borderRadius: 12,
-                background: t.inputBg,
-                border: `1px solid ${t.inputBorder}`,
-                color: t.inputColor,
-                fontSize: '0.9rem',
-                outline: 'none',
-                boxSizing: 'border-box'
-              }} />
-                  <textarea value={paperAbstract} onChange={e => setPaperAbstract(e.target.value)} placeholder="Submitted abstract" rows={6} style={{
-                width: '100%',
-                padding: '0.75rem 1rem',
-                borderRadius: 12,
-                background: t.inputBg,
-                border: `1px solid ${t.inputBorder}`,
-                color: t.inputColor,
-                fontSize: '0.9rem',
-                outline: 'none',
-                resize: 'vertical',
-                boxSizing: 'border-box'
-              }} />
-                  <button onClick={loadSimilarPapers} disabled={loadingSimilar} style={{
-                display: 'inline-flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                gap: 8,
-                padding: '0.75rem 1rem',
-                borderRadius: 8,
-                border: 'none',
-                cursor: loadingSimilar ? 'wait' : 'pointer',
-                background: 'linear-gradient(135deg,#06b6d4,#10b981)',
-                color: 'white',
-                fontWeight: 700
-              }}>
-                    {loadingSimilar && <FaSpinner size={12} style={{ animation: 'spin 0.8s linear infinite' }} />}
-                    Find similar papers
-                  </button>
-                </div>
-              </div>
-
-              <div style={card}>
-                <h3 style={{ fontSize: '0.95rem', fontWeight: 700, color: t.textPrimary, marginBottom: '1rem' }}>Similar papers</h3>
-                {similarPapers.length > 0 ? <div style={{ display: 'grid', gap: '0.65rem', maxHeight: 420, overflowY: 'auto' }}>
-                    {similarPapers.map((paper, index) => <div key={paper.paper_id || index} style={{ padding: '0.8rem 0.9rem', borderRadius: 10, background: t.inputBg, border: `1px solid ${t.inputBorder}` }}>
-                        <p style={{ color: t.textPrimary, fontWeight: 700, fontSize: '0.86rem', lineHeight: 1.4, marginBottom: '0.3rem' }}>{paper.title || 'Untitled'}</p>
-                        <p style={{ color: t.textMuted, fontSize: '0.75rem' }}>{paper.year || 'Year n/a'} · {paper.journal || 'Journal n/a'} · score {Number(paper.score || 0).toFixed(2)}</p>
-                      </div>)}
-                  </div> : <p style={{ color: t.textMuted, fontSize: '0.875rem' }}>Run a title or abstract search to surface related papers.</p>}
-              </div>
-            </div>
-          </div>}
-
-        {}
-        {false && activeTab === 'reviewer' && <div className="animate-fade-in">
-            <div style={{
-          display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fit,minmax(340px,1fr))',
-          gap: '1.5rem',
-          marginBottom: '1.5rem'
-        }}>
-              <div style={card}>
-                {sectionTitle('Reviewer Profile', <FaUser size={14} color="white" />)}
-                <p style={{
-              fontSize: '0.875rem',
-              color: t.textMuted,
-              marginBottom: '1rem'
-            }}>Select a reviewer and add paper authors to check collaboration conflicts.</p>
-                <div style={{
-              display: 'grid',
-              gap: '0.8rem'
-            }}>
-                  <div style={{ position: 'relative' }}>
-                    <FaSearch size={13} style={{
-                  position: 'absolute',
-                  left: 13,
-                  top: '50%',
-                  transform: 'translateY(-50%)',
-                  color: t.textMuted,
-                  pointerEvents: 'none'
-                }} />
-                    <input type="text" value={reviewerSearch} onChange={e => {
-                  const value = e.target.value.replace(/^['"]+/, '');
-                  setReviewerSelectionLocked(false);
-                  setReviewerSearch(value);
-                  setReviewerName(cleanReviewerDisplayName(value));
-                  setReviewerGraphName(cleanReviewerDisplayName(value));
-                }} placeholder="Reviewer name..." style={{
-                  width: '100%',
-                  padding: '0.75rem 1rem 0.75rem 2.4rem',
-                  borderRadius: 12,
-                  background: t.inputBg,
-                  border: `1px solid ${t.inputBorder}`,
-                  color: t.inputColor,
-                  fontSize: '0.9rem',
-                  outline: 'none',
-                  boxSizing: 'border-box'
-                }} />
-                    {reviewerSearching && <FaSpinner size={13} style={{
-                  position: 'absolute',
-                  right: 13,
-                  top: '50%',
-                  transform: 'translateY(-50%)',
-                  color: t.textMuted,
-                  animation: 'spin 0.8s linear infinite'
-                }} />}
-                  </div>
-                  {activeTab === 'reviewer' && reviewerSearch.trim().length >= 2 && <div style={{
-                background: t.cardBg,
-                border: `1px solid ${t.cardBorder}`,
-                borderRadius: 12,
-                overflow: 'hidden',
-                maxHeight: 220,
-                overflowY: 'auto'
-              }}>
-                      {reviewerSearching && <div style={{
-                    padding: '0.75rem 1rem',
-                    color: t.textMuted,
-                    fontSize: '0.85rem'
-                  }}>Searching reviewers...</div>}
-                      {!reviewerSearching && reviewerResults.length === 0 && <div style={{
-                    padding: '0.75rem 1rem',
-                    color: t.textMuted,
-                    fontSize: '0.85rem'
-                  }}>No reviewer matches found. Try a longer or exact author name.</div>}
-                      {!reviewerSearching && reviewerResults.map((a, i) => <button key={i} onClick={() => loadReviewerTools(cleanDisplayName(a.name), cleanDisplayName(a.displayName || a.name))} style={{
-                    width: '100%',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'space-between',
-                    padding: '0.7rem 1rem',
-                    background: 'none',
-                    border: 'none',
-                    borderBottom: `1px solid ${t.tableDivider}`,
-                    cursor: 'pointer',
-                    color: t.textPrimary
-                  }}>
-                          <span style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                            <FaUser size={11} style={{ color: '#a855f7' }} />
-                            <span style={{ fontSize: '0.875rem', fontWeight: 500 }}>{cleanDisplayName(a.displayName || a.name)}</span>
-                          </span>
-                          <span style={{ fontSize: '0.78rem', color: t.textMuted }}>{a.paperCount} papers</span>
-                        </button>)}
-                    </div>}
-                  <textarea value={paperAuthors} onChange={e => setPaperAuthors(e.target.value)} placeholder="Paper authors, comma-separated" rows={3} style={{
-                width: '100%',
-                padding: '0.75rem 1rem',
-                borderRadius: 12,
-                background: t.inputBg,
-                border: `1px solid ${t.inputBorder}`,
-                color: t.inputColor,
-                fontSize: '0.9rem',
-                outline: 'none',
-                resize: 'vertical',
-                boxSizing: 'border-box'
-              }} />
-                  <button onClick={() => loadReviewerTools()} disabled={loadingReviewer} style={{
-                display: 'inline-flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                gap: 8,
-                padding: '0.75rem 1rem',
-                borderRadius: 8,
-                border: 'none',
-                cursor: loadingReviewer ? 'wait' : 'pointer',
-                background: 'linear-gradient(135deg,#a855f7,#6366f1)',
-                color: 'white',
-                fontWeight: 700
-              }}>
-                    {loadingReviewer && <FaSpinner size={12} style={{ animation: 'spin 0.8s linear infinite' }} />}
-                    Run reviewer checks
-                  </button>
-                </div>
-              </div>
-
-              <div style={card}>
-                {sectionTitle('Paper Similarity', <FaSearch size={14} color="white" />)}
-                <div style={{ display: 'grid', gap: '0.8rem' }}>
-                  <input type="text" value={paperTitle} onChange={e => setPaperTitle(e.target.value)} placeholder="Submitted paper title" style={{
-                width: '100%',
-                padding: '0.75rem 1rem',
-                borderRadius: 12,
-                background: t.inputBg,
-                border: `1px solid ${t.inputBorder}`,
-                color: t.inputColor,
-                fontSize: '0.9rem',
-                outline: 'none',
-                boxSizing: 'border-box'
-              }} />
-                  <textarea value={paperAbstract} onChange={e => setPaperAbstract(e.target.value)} placeholder="Submitted abstract" rows={5} style={{
-                width: '100%',
-                padding: '0.75rem 1rem',
-                borderRadius: 12,
-                background: t.inputBg,
-                border: `1px solid ${t.inputBorder}`,
-                color: t.inputColor,
-                fontSize: '0.9rem',
-                outline: 'none',
-                resize: 'vertical',
-                boxSizing: 'border-box'
-              }} />
-                  <button onClick={loadSimilarPapers} disabled={loadingSimilar} style={{
-                display: 'inline-flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                gap: 8,
-                padding: '0.75rem 1rem',
-                borderRadius: 8,
-                border: 'none',
-                cursor: loadingSimilar ? 'wait' : 'pointer',
-                background: 'linear-gradient(135deg,#06b6d4,#10b981)',
-                color: 'white',
-                fontWeight: 700
-              }}>
-                    {loadingSimilar && <FaSpinner size={12} style={{ animation: 'spin 0.8s linear infinite' }} />}
-                    Find similar papers
-                  </button>
-                </div>
-              </div>
-            </div>
-
-            <div style={{
-          display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fit,minmax(320px,1fr))',
-          gap: '1.5rem'
-        }}>
-              <div style={card}>
-                <h3 style={{ fontSize: '0.95rem', fontWeight: 700, color: t.textPrimary, marginBottom: '1rem' }}>Track record</h3>
-                {loadingReviewer ? <p style={{ color: t.textMuted }}>Loading...</p> : trackRecord ? <div style={{ display: 'grid', gap: '0.75rem' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', gap: '1rem' }}>
-                      <span style={{ color: t.textMuted, fontSize: '0.82rem' }}>Author</span>
-                      <strong style={{ color: t.textPrimary, textAlign: 'right' }}>{trackRecord.author_name}</strong>
-                    </div>
-                    {[['Total papers', trackRecord.total_papers], ['Active years', `${trackRecord.first_year || '-'} to ${trackRecord.last_year || '-'}`], ['Collaborative papers', trackRecord.collaborative_papers || 0]].map(([label, value]) => <div key={label} style={{ display: 'flex', justifyContent: 'space-between', gap: '1rem' }}>
-                        <span style={{ color: t.textMuted, fontSize: '0.82rem' }}>{label}</span>
-                        <strong style={{ color: t.textPrimary }}>{value}</strong>
-                      </div>)}
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-                      {(() => {
-                    const q = trackRecord.best_quartile || 'UNRANKED';
-                    const tone = quartileTone(q);
-                    return <span style={{ padding: '0.28rem 0.6rem', borderRadius: 999, background: tone.bg, border: `1px solid ${tone.border}`, color: tone.text, fontSize: '0.75rem', fontWeight: 800 }}>{q}</span>;
-                  })()}
-                      <span style={{ color: t.textMuted, fontSize: '0.78rem' }}>{trackRecord.quartile_summary || 'No journal ranking match'}</span>
-                    </div>
-                    <p style={{ color: t.textMuted, fontSize: '0.8rem', lineHeight: 1.6 }}><strong style={{ color: t.textSecondary }}>Journals:</strong> {trackRecord.journals || 'No journals found'}</p>
-                    <p style={{ color: t.textMuted, fontSize: '0.8rem', lineHeight: 1.6 }}><strong style={{ color: t.textSecondary }}>Co-authors:</strong> {trackRecord.co_authors || 'No co-authors found'}</p>
-                  </div> : <p style={{ color: t.textMuted, fontSize: '0.875rem' }}>{trackRecordSearched ? `No MySQL track record found for ${reviewerName}.` : 'Choose a reviewer to load their publishing history.'}</p>}
-              </div>
-
-              <div style={card}>
-                <h3 style={{ fontSize: '0.95rem', fontWeight: 700, color: t.textPrimary, marginBottom: '1rem' }}>Conflict of interest</h3>
-                {conflictData ? <div style={{ display: 'grid', gap: '0.75rem' }}>
-                    {(() => {
-                  const tone = conflictTone(conflictData.overall_conflict_level);
-                  return <div style={{ padding: '0.9rem 1rem', borderRadius: 12, background: tone.bg, border: `1px solid ${tone.border}`, color: tone.text, fontWeight: 800 }}>
-                        Overall conflict: {conflictData.overall_conflict_level}
-                      </div>;
-                })()}
-                    {(conflictData.conflicts || []).map(item => {
-                  const tone = conflictTone(item.conflict_level);
-                  return <div key={item.author} style={{ padding: '0.75rem 0.85rem', borderRadius: 10, background: t.inputBg, border: `1px solid ${t.inputBorder}` }}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', gap: '1rem', marginBottom: '0.25rem' }}>
-                          <span style={{ color: t.textPrimary, fontWeight: 700, fontSize: '0.86rem' }}>{item.author}</span>
-                          <span style={{ color: tone.text, fontWeight: 800, fontSize: '0.78rem' }}>{item.conflict_level}</span>
-                        </div>
-                        <p style={{ color: t.textMuted, fontSize: '0.75rem' }}>Direct {item.direct} · shared co-author {item.indirect}</p>
-                      </div>;
-                })}
-                  </div> : <p style={{ color: t.textMuted, fontSize: '0.875rem' }}>Add paper authors, then run reviewer checks.</p>}
-              </div>
-
-              <div style={card}>
-                <h3 style={{ fontSize: '0.95rem', fontWeight: 700, color: t.textPrimary, marginBottom: '1rem' }}>Similar papers</h3>
-                {similarPapers.length > 0 ? <div style={{ display: 'grid', gap: '0.65rem', maxHeight: 360, overflowY: 'auto' }}>
-                    {similarPapers.map((paper, index) => <div key={paper.paper_id || index} style={{ padding: '0.8rem 0.9rem', borderRadius: 10, background: t.inputBg, border: `1px solid ${t.inputBorder}` }}>
-                        <p style={{ color: t.textPrimary, fontWeight: 700, fontSize: '0.86rem', lineHeight: 1.4, marginBottom: '0.3rem' }}>{paper.title || 'Untitled'}</p>
-                        <p style={{ color: t.textMuted, fontSize: '0.75rem' }}>{paper.year || 'Year n/a'} · {paper.journal || 'Journal n/a'} · score {Number(paper.score || 0).toFixed(2)}</p>
-                      </div>)}
-                  </div> : <p style={{ color: t.textMuted, fontSize: '0.875rem' }}>Run a title or abstract search to surface related papers.</p>}
-              </div>
-            </div>
-          </div>}
-
-        {}
         {activeTab === 'sources' && <div className="animate-fade-in">
             <div style={{
           display: 'grid',
@@ -1641,6 +1200,126 @@ NEO4J_PASSWORD=your_password`}
               </div>
             </div>
           </div>}
+
+        {activeTab === 'pathfinder' && (
+          <div className="animate-fade-in">
+            <div style={card}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: '1rem' }}>
+                <div style={{ width: 34, height: 34, borderRadius: 10, background: 'linear-gradient(135deg,#a855f7,#6366f1)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  <FaRoute size={14} color="white" />
+                </div>
+                <div>
+                  <h3 style={{ margin: 0, color: t.textPrimary, fontSize: '1rem', fontWeight: 700 }}>
+                    Connect Any Two Researchers
+                  </h3>
+                  <p style={{ margin: 0, color: t.textMuted, fontSize: '0.74rem' }}>
+                    Finds the shortest collaboration path via CO_AUTHORED edges (up to 6 hops)
+                  </p>
+                </div>
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr auto 1fr', gap: '1rem', alignItems: 'start', marginBottom: '1rem' }}>
+
+                <div>
+                  <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 700, color: t.textMuted, marginBottom: '0.4rem', textTransform: 'uppercase' }}>
+                    From Researcher
+                  </label>
+                  <div style={{ position: 'relative' }}>
+                    <input
+                      type="text"
+                      value={pathFrom}
+                      onChange={e => setPathFrom(e.target.value)}
+                      placeholder="Start author name..."
+                      style={{ width: '100%', padding: '0.75rem 1rem', borderRadius: 12, background: t.inputBg, border: `1px solid ${t.inputBorder}`, color: t.textPrimary, fontSize: '0.9rem', outline: 'none', boxSizing: 'border-box' }}
+                    />
+                    {pathFromResults.length > 0 && (
+                      <div style={{ position: 'absolute', top: '110%', left: 0, right: 0, zIndex: 10, background: t.cardBg, border: `1px solid ${t.cardBorder}`, borderRadius: 12, maxHeight: 180, overflowY: 'auto' }}>
+                        {pathFromResults.slice(0, 8).map((a, i) => (
+                          <button key={i} onClick={() => { setPathFrom(a.name); setPathFromResults([]); }} style={{ width: '100%', display: 'flex', justifyContent: 'space-between', padding: '0.6rem 0.9rem', background: 'none', border: 'none', cursor: 'pointer', color: t.textPrimary, fontSize: '0.85rem' }}>
+                            <span>{cleanDisplayName(a.name)}</span>
+                            <span style={{ color: t.textMuted, fontSize: '0.76rem' }}>{a.paperCount} papers</span>
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                <div style={{ paddingTop: '1.8rem', color: t.textMuted, fontSize: '1.2rem', textAlign: 'center' }}>
+                  →
+                </div>
+
+                <div>
+                  <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 700, color: t.textMuted, marginBottom: '0.4rem', textTransform: 'uppercase' }}>
+                    To Researcher
+                  </label>
+                  <div style={{ position: 'relative' }}>
+                    <input
+                      type="text"
+                      value={pathTo}
+                      onChange={e => setPathTo(e.target.value)}
+                      placeholder="End author name..."
+                      style={{ width: '100%', padding: '0.75rem 1rem', borderRadius: 12, background: t.inputBg, border: `1px solid ${t.inputBorder}`, color: t.textPrimary, fontSize: '0.9rem', outline: 'none', boxSizing: 'border-box' }}
+                    />
+                    {pathToResults.length > 0 && (
+                      <div style={{ position: 'absolute', top: '110%', left: 0, right: 0, zIndex: 10, background: t.cardBg, border: `1px solid ${t.cardBorder}`, borderRadius: 12, maxHeight: 180, overflowY: 'auto' }}>
+                        {pathToResults.slice(0, 8).map((a, i) => (
+                          <button key={i} onClick={() => { setPathTo(a.name); setPathToResults([]); }} style={{ width: '100%', display: 'flex', justifyContent: 'space-between', padding: '0.6rem 0.9rem', background: 'none', border: 'none', cursor: 'pointer', color: t.textPrimary, fontSize: '0.85rem' }}>
+                            <span>{cleanDisplayName(a.name)}</span>
+                            <span style={{ color: t.textMuted, fontSize: '0.76rem' }}>{a.paperCount} papers</span>
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              <button
+                onClick={findPath}
+                disabled={loadingPath}
+                style={{ display: 'inline-flex', alignItems: 'center', gap: 8, padding: '0.75rem 1.25rem', borderRadius: 12, border: 'none', background: 'linear-gradient(135deg,#a855f7,#6366f1)', color: 'white', fontWeight: 700, cursor: loadingPath ? 'wait' : 'pointer', opacity: loadingPath ? 0.7 : 1 }}>
+                {loadingPath ? <FaSpinner size={12} style={{ animation: 'spin 0.8s linear infinite' }} /> : <FaRoute size={12} />}
+                {loadingPath ? 'Searching...' : 'Find Path'}
+              </button>
+            </div>
+
+            {pathResult && (
+              <div style={{ ...card, marginTop: '1.25rem', padding: '1.5rem' }}>
+                {pathResult.connected ? (
+                  <>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: '1rem' }}>
+                      <span style={{ padding: '0.3rem 0.8rem', borderRadius: 999, background: 'rgba(16,185,129,0.15)', color: '#34d399', fontSize: '0.78rem', fontWeight: 700 }}>
+                        {pathResult.hops} hop{pathResult.hops !== 1 ? 's' : ''} apart
+                      </span>
+                      <span style={{ color: t.textMuted, fontSize: '0.82rem' }}>
+                        {pathResult.hops === 1 ? 'Direct collaborators!' : `Connected through ${pathResult.hops - 1} intermediary${pathResult.hops > 2 ? 'ies' : ''}`}
+                      </span>
+                    </div>
+                    <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: '0.5rem' }}>
+                      {pathResult.path.map((authorName, i) => (
+                        <React.Fragment key={i}>
+                          <div style={{ padding: '0.5rem 0.85rem', borderRadius: 10, background: i === 0 || i === pathResult.path.length - 1 ? 'linear-gradient(135deg,#a855f7,#6366f1)' : t.inputBg, border: `1px solid ${i === 0 || i === pathResult.path.length - 1 ? 'transparent' : t.inputBorder}`, color: i === 0 || i === pathResult.path.length - 1 ? 'white' : t.textPrimary, fontSize: '0.82rem', fontWeight: 700 }}>
+                            {cleanDisplayName(authorName)}
+                          </div>
+                          {i < pathResult.path.length - 1 && (
+                            <div style={{ color: t.textMuted, fontSize: '0.78rem' }}>
+                              ── {pathResult.shared_papers_along_path[i]} papers ──▶
+                            </div>
+                          )}
+                        </React.Fragment>
+                      ))}
+                    </div>
+                  </>
+                ) : (
+                  <div style={{ color: t.textMuted, fontSize: '0.875rem' }}>
+                    No collaboration path found within 6 hops between these researchers.
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        )}
 
       </div>
     </div>;

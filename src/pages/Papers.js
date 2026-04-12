@@ -610,6 +610,7 @@ const Papers = () => {
                   display: 'flex',
                   gap: 6,
                   opacity: 0,
+                  zIndex: 10,
                   transition: 'opacity 0.2s ease'
                 }} className="group-hover-actions">
                         <button onClick={e => {

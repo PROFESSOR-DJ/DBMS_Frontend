@@ -86,6 +86,46 @@ export const graphApi = {
     });
     return res.data;
   },
+  getTopFirstAuthors: async (limit = 10) => {
+    const res = await api.get('/graph/top-first-authors', { params: { limit } });
+    return res.data;
+  },
+
+  getAuthorFirstPapers: async (name, limit = 20) => {
+    const res = await api.get(`/graph/author-first-papers/${encodeURIComponent(name)}`, {
+      params: { limit }
+    });
+    return res.data;
+  },
+
+  getCollaborationStrength: async (authorA, authorB) => {
+    const res = await api.get('/graph/collaboration-strength', {
+      params: { authorA, authorB }
+    });
+    return res.data;
+  },
+
+  findResearchPath: async (from, to) => {
+    const res = await api.get('/graph/research-path', { params: { from, to } });
+    return res.data;
+  },
+
+  getCollaborationLeaderboard: async (limit = 15) => {
+    const res = await api.get('/graph/collaboration-leaderboard', { params: { limit } });
+    return res.data;
+  },
+
+  getJournalImpactNetwork: async (journal, limit = 10) => {
+    const res = await api.get(`/graph/journal-network/${encodeURIComponent(journal)}`, {
+      params: { limit }
+    });
+    return res.data;
+  },
+
+  getSourceDistribution: async () => {
+    const res = await api.get('/graph/source-distribution');
+    return res.data;
+  },
   getHealth: async () => {
     const res = await api.get('/graph/health');
     return res.data;
