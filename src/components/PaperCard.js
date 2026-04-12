@@ -14,6 +14,7 @@ import {
 } from 'react-icons/fa';
 import { useTheme } from '../context/ThemeContext';
 import { getTheme } from '../utils/theme';
+import { cleanDisplayName } from '../utils/cleanName';
 
 const PaperCard = ({ paper }) => {
   const { isDark } = useTheme();
@@ -31,13 +32,14 @@ const PaperCard = ({ paper }) => {
     if (!authors) return 'Unknown';
     const authorList = typeof authors === 'string' ? authors.split(', ') : authors;
     if (Array.isArray(authorList)) {
-      if (authorList.length === 0) return 'Unknown';
-      if (authorList.length === 1) return authorList[0];
-      if (authorList.length === 2) return authorList.join(' and ');
-      if (authorList.length > 3) return `${authorList.slice(0, 3).join(', ')} et al.`;
-      return `${authorList.slice(0, -1).join(', ')} and ${authorList[authorList.length - 1]}`;
+      const cleaned = authorList.map(cleanDisplayName);
+      if (cleaned.length === 0) return 'Unknown';
+      if (cleaned.length === 1) return cleaned[0];
+      if (cleaned.length === 2) return cleaned.join(' and ');
+      if (cleaned.length > 3) return `${cleaned.slice(0, 3).join(', ')} et al.`;
+      return `${cleaned.slice(0, -1).join(', ')} and ${cleaned[cleaned.length - 1]}`;
     }
-    return authors;
+    return cleanDisplayName(authors);
   };
 
   const isPotentiallyCollaborative = paper.is_important === true || paper.is_important === 1;

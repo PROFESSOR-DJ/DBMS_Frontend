@@ -1,6 +1,7 @@
 // StatCard renders the stat card UI component.
 import React, { useEffect, useRef, useState } from 'react';
 import { FaFileAlt, FaUsers, FaNewspaper, FaCalendarAlt } from 'react-icons/fa';
+import { cleanDisplayName } from '../utils/cleanName';
 const config = {
   papers: {
     icon: FaFileAlt,
@@ -112,7 +113,7 @@ const StatCard = ({
           letterSpacing: '0.06em',
           marginBottom: '0.5rem'
         }}>
-            {title}
+            {cleanDisplayName(title)}
           </p>
           <p style={{
           fontSize: '2.2rem',

@@ -168,83 +168,44 @@ const Dashboard = () => {
           <StatCard title="Years Covered"   value={stats.papersPerYear.length} type="years" delay={300} />
         </div>
 
-        <div className="animate-fade-in" style={{ marginBottom: '2.5rem' }}>
-          <SectionLabel icon={FaChartLine} text="Researcher Briefing" sub="Each card leans on the database best suited to the question." />
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(280px,1fr))', gap: '1.5rem' }}>
-            <div style={glassPanel}>
-              <h3 style={{ fontSize: '1rem', fontWeight: 700, color: t.textPrimary, marginBottom: '0.9rem' }}>MySQL: curated action list</h3>
-              <p style={{ color: t.textMuted, fontSize: '0.82rem', marginBottom: '0.9rem' }}>
-                Use structured relational data when you need trustworthy counts, active users, and papers worth following up.
-              </p>
-              <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap', marginBottom: '0.9rem' }}>
-                <span style={{ padding: '0.28rem 0.65rem', borderRadius: 999, background: 'rgba(16,185,129,0.12)', border: '1px solid rgba(16,185,129,0.24)', color: '#34d399', fontSize: '0.75rem', fontWeight: 700 }}>
-                  Important papers: {stats.importantPapers.length}
-                </span>
-                <span style={{ padding: '0.28rem 0.65rem', borderRadius: 999, background: 'rgba(245,158,11,0.12)', border: '1px solid rgba(245,158,11,0.24)', color: '#f59e0b', fontSize: '0.75rem', fontWeight: 700 }}>
-                  Incomplete records: {stats.incompletePaperCount}
-                </span>
-              </div>
-              <div style={{ display: 'grid', gap: '0.65rem' }}>
-                {stats.importantPapers.slice(0, 3).map(paper => (
-                  <button key={paper.paper_id} onClick={() => window.location.href = `/papers/${paper.paper_id}`}
-                    style={{ width: '100%', textAlign: 'left', padding: '0.8rem 0.9rem', background: t.inputBg, border: `1px solid ${t.inputBorder}`, borderRadius: 12, cursor: 'pointer' }}>
-                    <div style={{ color: t.textPrimary, fontWeight: 700, fontSize: '0.85rem', marginBottom: '0.25rem', lineHeight: 1.45 }}>{paper.title}</div>
-                    <div style={{ color: t.textMuted, fontSize: '0.76rem' }}>{paper.author_count_display} • {paper.journal || 'Journal n/a'} • {paper.year || 'Year n/a'}</div>
-                  </button>
-                ))}
-                {!stats.importantPapers.length && <p style={{ color: t.textMuted, fontSize: '0.82rem' }}>No trigger-flagged papers are available right now.</p>}
-              </div>
-            </div>
+        <div className="animate-fade-in" style={{ ...glassPanel, marginBottom: '2.5rem' }}>
+          <SectionLabel icon={FaDatabase} text="Live Database Activity" sub="Three specialised stores, one unified view" />
 
-            <div style={glassPanel}>
-              <h3 style={{ fontSize: '1rem', fontWeight: 700, color: t.textPrimary, marginBottom: '0.9rem' }}>MongoDB: topic discovery</h3>
-              <p style={{ color: t.textMuted, fontSize: '0.82rem', marginBottom: '0.9rem' }}>
-                Use document analytics to spot recurring themes and journal trends before drilling into paper-level searches.
-              </p>
-              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.55rem', marginBottom: '1rem' }}>
-                {stats.topKeywords.slice(0, 8).map(item => (
-                  <button key={item.name} onClick={() => handleSearch(item.name)}
-                    style={{ padding: '0.35rem 0.7rem', borderRadius: 999, background: t.inputBg, border: `1px solid ${t.inputBorder}`, color: t.textSecondary, cursor: 'pointer', fontSize: '0.76rem', fontWeight: 600 }}>
-                    {item.name} ({item.count})
-                  </button>
-                ))}
-                {!stats.topKeywords.length && <span style={{ color: t.textMuted, fontSize: '0.82rem' }}>Keyword insights unavailable.</span>}
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(200px,1fr))', gap: '1rem', marginBottom: '1.5rem' }}>
+            {[
+              { db: 'MySQL', role: 'Structured records', detail: `${stats.totalPapers?.toLocaleString()} papers · ${stats.uniqueAuthors?.toLocaleString()} authors`, color: '#06b6d4', note: 'Author-paper links, triggers, stored procedures' },
+              { db: 'MongoDB', role: 'Full-text search', detail: `${stats.totalJournals?.toLocaleString()} journals · avg ${stats.avgCitations || 0} citations`, color: '#10b981', note: 'Flexible metadata, keyword discovery, aggregations' },
+              { db: 'Neo4j', role: 'Collaboration graph', detail: `${stats.rankedJournals?.toLocaleString()} ranked venues`, color: '#a855f7', note: 'Co-authorship networks, shortest path, centrality' },
+            ].map(item => (
+              <div key={item.db} style={{ padding: '1.1rem', borderRadius: 16, background: `${item.color}10`, border: `1px solid ${item.color}28` }}>
+                <div style={{ fontSize: '0.7rem', fontWeight: 800, color: item.color, textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '0.35rem' }}>
+                  {item.db}
+                </div>
+                <div style={{ fontSize: '1rem', fontWeight: 800, color: t.textPrimary, marginBottom: '0.3rem' }}>{item.role}</div>
+                <div style={{ fontSize: '0.78rem', color: item.color, fontWeight: 600, marginBottom: '0.3rem' }}>{item.detail}</div>
+                <div style={{ fontSize: '0.72rem', color: t.textMuted, lineHeight: 1.5 }}>{item.note}</div>
               </div>
-              <div style={{ display: 'grid', gap: '0.6rem' }}>
-                {stats.topJournals.slice(0, 3).map(journal => (
-                  <div key={journal.name} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.7rem 0.85rem', background: t.inputBg, border: `1px solid ${t.inputBorder}`, borderRadius: 12 }}>
-                    <div style={{ color: t.textPrimary, fontWeight: 700, fontSize: '0.84rem' }}>{journal.name}</div>
-                    <div style={{ color: t.accentText, fontWeight: 700, fontSize: '0.8rem' }}>{journal.value} papers</div>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            <div style={glassPanel}>
-              <h3 style={{ fontSize: '1rem', fontWeight: 700, color: t.textPrimary, marginBottom: '0.9rem' }}>Neo4j: collaboration context</h3>
-              <p style={{ color: t.textMuted, fontSize: '0.82rem', marginBottom: '0.9rem' }}>
-                Use the graph when your question is about who works together, which venues are connected, and where strong collaboration clusters are forming.
-              </p>
-              <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap', marginBottom: '0.9rem' }}>
-                <span style={{ padding: '0.28rem 0.65rem', borderRadius: 999, background: 'rgba(168,85,247,0.12)', border: '1px solid rgba(168,85,247,0.24)', color: '#c084fc', fontSize: '0.75rem', fontWeight: 700 }}>
-                  Ranked journals in graph: {stats.rankedJournals}
-                </span>
-                <span style={{ padding: '0.28rem 0.65rem', borderRadius: 999, background: 'rgba(6,182,212,0.12)', border: '1px solid rgba(6,182,212,0.24)', color: '#22d3ee', fontSize: '0.75rem', fontWeight: 700 }}>
-                  Recent users: {stats.activeUsers.length}
-                </span>
-              </div>
-              <div style={{ display: 'grid', gap: '0.65rem' }}>
-                {stats.topCollaborators.slice(0, 4).map(item => (
-                  <button key={item.author} onClick={() => window.location.href = '/graph'}
-                    style={{ width: '100%', textAlign: 'left', padding: '0.8rem 0.9rem', background: t.inputBg, border: `1px solid ${t.inputBorder}`, borderRadius: 12, cursor: 'pointer' }}>
-                    <div style={{ color: t.textPrimary, fontWeight: 700, fontSize: '0.84rem' }}>{item.author}</div>
-                    <div style={{ color: t.textMuted, fontSize: '0.76rem' }}>Collaboration score {item.collaboration_score}</div>
-                  </button>
-                ))}
-                {!stats.topCollaborators.length && <p style={{ color: t.textMuted, fontSize: '0.82rem' }}>Collaboration highlights become available when Neo4j is online.</p>}
-              </div>
-            </div>
+            ))}
           </div>
+
+          {stats.importantPapers.length > 0 && (
+            <div>
+              <p style={{ fontSize: '0.78rem', color: t.textMuted, marginBottom: '0.75rem', fontWeight: 600 }}>
+                HIGHLY COLLABORATIVE PAPERS — flagged by <code style={{ color: t.accent }}>trg_mark_important_paper</code>
+              </p>
+              <div style={{ display: 'grid', gap: '0.55rem' }}>
+                {stats.importantPapers.slice(0, 4).map(paper => (
+                  <button key={paper.paper_id} onClick={() => window.location.href = `/papers/${paper.paper_id}`}
+                    style={{ width: '100%', textAlign: 'left', padding: '0.75rem 0.9rem', background: t.inputBg, border: `1px solid ${t.inputBorder}`, borderRadius: 12, cursor: 'pointer' }}>
+                    <div style={{ color: t.textPrimary, fontWeight: 700, fontSize: '0.85rem', marginBottom: '0.2rem', lineHeight: 1.4 }}>{paper.title}</div>
+                    <div style={{ color: t.textMuted, fontSize: '0.74rem' }}>
+                      {paper.author_count_display} · {paper.journal || 'Journal n/a'} · {paper.year || 'Year n/a'}
+                    </div>
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
 
         {/* ── Analytics charts ─────────────────────────────────────────── */}

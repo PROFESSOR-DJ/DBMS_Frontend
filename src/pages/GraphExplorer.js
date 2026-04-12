@@ -1,11 +1,92 @@
 // GraphExplorer renders graph analytics, publication stats, and author network exploration.
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
+import * as d3 from 'd3';
+import { cleanDisplayName } from '../utils/cleanName';
 import { graphApi } from '../api/graphApi';
 import { useTheme } from '../context/ThemeContext';
 import { getTheme } from '../utils/theme';
 import { FaProjectDiagram, FaUser, FaNewspaper, FaDatabase, FaSearch, FaSpinner, FaNetworkWired, FaChartBar, FaArrowRight, FaTimes, FaInfoCircle } from 'react-icons/fa';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell, PieChart, Pie, Legend } from 'recharts';
 import toast from 'react-hot-toast';
+
+const ForceGraph = ({ author, coAuthors, t }) => {
+  const svgRef = useRef(null);
+
+  useEffect(() => {
+    if (!coAuthors?.length || !svgRef.current) return;
+
+    const width = svgRef.current.clientWidth || 600;
+    const height = 420;
+    const svg = d3.select(svgRef.current);
+    svg.selectAll('*').remove();
+
+    const nodes = [
+      { id: author, group: 0 },
+      ...coAuthors.slice(0, 20).map(c => ({ id: cleanDisplayName(c.name), group: 1, papers: c.sharedPapers }))
+    ];
+
+    const links = coAuthors.slice(0, 20).map(c => ({
+      source: author,
+      target: cleanDisplayName(c.name),
+      value: c.sharedPapers
+    }));
+
+    const simulation = d3.forceSimulation(nodes)
+      .force('link', d3.forceLink(links).id(d => d.id).distance(100))
+      .force('charge', d3.forceManyBody().strength(-300))
+      .force('center', d3.forceCenter(width / 2, height / 2));
+
+    const link = svg.append('g')
+      .selectAll('line')
+      .data(links)
+      .join('line')
+      .attr('stroke', 'rgba(168,85,247,0.35)')
+      .attr('stroke-width', d => Math.min(d.value, 5));
+
+    const node = svg.append('g')
+      .selectAll('circle')
+      .data(nodes)
+      .join('circle')
+      .attr('r', d => d.group === 0 ? 14 : 8)
+      .attr('fill', d => d.group === 0 ? '#a855f7' : '#06b6d4')
+      .attr('stroke', d => d.group === 0 ? '#d8b4fe' : '#22d3ee')
+      .attr('stroke-width', 2)
+      .call(d3.drag()
+        .on('start', (event, d) => { if (!event.active) simulation.alphaTarget(0.3).restart(); d.fx = d.x; d.fy = d.y; })
+        .on('drag', (event, d) => { d.fx = event.x; d.fy = event.y; })
+        .on('end', (event, d) => { if (!event.active) simulation.alphaTarget(0); d.fx = null; d.fy = null; })
+      );
+
+    const label = svg.append('g')
+      .selectAll('text')
+      .data(nodes)
+      .join('text')
+      .text(d => d.id.length > 18 ? d.id.slice(0, 18) + '…' : d.id)
+      .attr('font-size', d => d.group === 0 ? 13 : 10)
+      .attr('fill', t.textSecondary)
+      .attr('text-anchor', 'middle')
+      .attr('dy', d => d.group === 0 ? -18 : -12);
+
+    simulation.on('tick', () => {
+      link.attr('x1', d => d.source.x).attr('y1', d => d.source.y)
+          .attr('x2', d => d.target.x).attr('y2', d => d.target.y);
+      node.attr('cx', d => d.x).attr('cy', d => d.y);
+      label.attr('x', d => d.x).attr('y', d => d.y);
+    });
+
+    return () => simulation.stop();
+  }, [author, coAuthors, t]);
+
+  return (
+    <svg
+      ref={svgRef}
+      width="100%"
+      height={420}
+      style={{ background: 'rgba(0,0,0,0.15)', borderRadius: 14, cursor: 'grab' }}
+    />
+  );
+};
+
 const COLORS = ['#6366f1', '#a855f7', '#06b6d4', '#10b981', '#f59e0b', '#ef4444', '#ec4899', '#8b5cf6', '#14b8a6', '#f97316'];
 const quartileTone = quartile => ({
   Q1: { bg: 'rgba(16,185,129,0.16)', border: 'rgba(16,185,129,0.28)', text: '#34d399' },
@@ -557,7 +638,7 @@ NEO4J_PASSWORD=your_password`}
             }}>
                     <ResponsiveContainer width="100%" height="100%">
                       <BarChart data={topAuthors.slice(0, 8).map(a => ({
-                  name: a.name.length > 18 ? a.name.slice(0, 18) + '…' : a.name,
+                  name: cleanDisplayName(a.name).length > 18 ? cleanDisplayName(a.name).slice(0, 18) + '…' : cleanDisplayName(a.name),
                   Papers: a.paperCount
                 }))} layout="vertical" margin={{
                   left: 10,
@@ -974,7 +1055,7 @@ NEO4J_PASSWORD=your_password`}
             maxHeight: 240,
             overflowY: 'auto'
           }}>
-                  {searchResults.map((a, i) => <button key={i} onClick={() => loadAuthorNetwork(a.name)} style={{
+                  {searchResults.map((a, i) => <button key={i} onClick={() => loadAuthorNetwork(cleanDisplayName(a.name))} style={{
               width: '100%',
               display: 'flex',
               alignItems: 'center',
@@ -1002,7 +1083,7 @@ NEO4J_PASSWORD=your_password`}
                         <span style={{
                   fontSize: '0.875rem',
                   fontWeight: 500
-                }}>{a.name}</span>
+                }}>{cleanDisplayName(a.name)}</span>
                       </span>
                       <span style={{
                 fontSize: '0.78rem',
@@ -1102,91 +1183,12 @@ NEO4J_PASSWORD=your_password`}
                   </div>
                 </div>
 
-                <div style={{
-            display: 'grid',
-            gridTemplateColumns: 'repeat(auto-fit,minmax(340px,1fr))',
-            gap: '1.5rem'
-          }}>
-
-                  {}
-                  <div style={card}>
-                    <h3 style={{
-                fontSize: '0.95rem',
-                fontWeight: 700,
-                color: t.textPrimary,
-                marginBottom: '1rem'
-              }}>
-                      Co-authors ({networkData.totalCoAuthors})
-                    </h3>
-                    {networkData.coAuthors.length === 0 ? <p style={{
-                color: t.textMuted,
-                fontSize: '0.875rem'
-              }}>No co-authors found.</p> : <div style={{
-                maxHeight: 340,
-                overflowY: 'auto',
-                display: 'flex',
-                flexDirection: 'column',
-                gap: '0.5rem'
-              }}>
-                        {networkData.coAuthors.map((ca, i) => <button key={i} onClick={() => loadAuthorNetwork(ca.name)} style={{
-                  width: '100%',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'space-between',
-                  padding: '0.6rem 0.85rem',
-                  borderRadius: 10,
-                  background: t.inputBg,
-                  border: `1px solid ${t.inputBorder}`,
-                  cursor: 'pointer',
-                  transition: 'all 0.2s ease',
-                  color: t.textPrimary
-                }} onMouseEnter={e => {
-                  e.currentTarget.style.borderColor = 'rgba(168,85,247,0.4)';
-                  e.currentTarget.style.background = 'rgba(168,85,247,0.08)';
-                }} onMouseLeave={e => {
-                  e.currentTarget.style.borderColor = t.inputBorder;
-                  e.currentTarget.style.background = t.inputBg;
-                }}>
-                            <span style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: 8
-                  }}>
-                              <div style={{
-                      width: 24,
-                      height: 24,
-                      borderRadius: 6,
-                      background: COLORS[i % COLORS.length] + '22',
-                      border: `1px solid ${COLORS[i % COLORS.length]}44`,
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center'
-                    }}>
-                                <FaUser size={10} style={{
-                        color: COLORS[i % COLORS.length]
-                      }} />
-                              </div>
-                              <span style={{
-                      fontSize: '0.85rem',
-                      fontWeight: 500
-                    }}>{ca.name}</span>
-                            </span>
-                            <div style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: 6
-                  }}>
-                              <span style={{
-                      fontSize: '0.75rem',
-                      color: '#a855f7',
-                      fontWeight: 600
-                    }}>{ca.sharedPapers} shared</span>
-                              <FaArrowRight size={10} style={{
-                      color: t.textMuted
-                    }} />
-                            </div>
-                          </button>)}
-                      </div>}
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.25rem' }}>
+                  <div style={{ marginBottom: '1.25rem' }}>
+                    <ForceGraph author={networkData.author} coAuthors={networkData.coAuthors} t={t} />
+                    <p style={{ color: t.textMuted, fontSize: '0.74rem', marginTop: '0.5rem', textAlign: 'center' }}>
+                      Drag nodes to explore • Top 20 co-authors shown • Node size = connection strength
+                    </p>
                   </div>
 
                   {}
@@ -1386,7 +1388,7 @@ NEO4J_PASSWORD=your_password`}
                     color: t.textMuted,
                     fontSize: '0.85rem'
                   }}>No reviewer matches found. Try a longer or exact author name.</div>}
-                      {!reviewerSearching && reviewerResults.map((a, i) => <button key={i} onClick={() => loadReviewerTools(a.name, a.displayName || a.name)} style={{
+                      {!reviewerSearching && reviewerResults.map((a, i) => <button key={i} onClick={() => loadReviewerTools(cleanDisplayName(a.name), cleanDisplayName(a.displayName || a.name))} style={{
                     width: '100%',
                     display: 'flex',
                     alignItems: 'center',
@@ -1400,7 +1402,7 @@ NEO4J_PASSWORD=your_password`}
                   }}>
                           <span style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                             <FaUser size={11} style={{ color: '#a855f7' }} />
-                            <span style={{ fontSize: '0.875rem', fontWeight: 500 }}>{a.displayName || a.name}</span>
+                            <span style={{ fontSize: '0.875rem', fontWeight: 500 }}>{cleanDisplayName(a.displayName || a.name)}</span>
                           </span>
                           <span style={{ fontSize: '0.78rem', color: t.textMuted }}>{a.paperCount} papers</span>
                         </button>)}

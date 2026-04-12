@@ -16,6 +16,7 @@ import {
 import toast from 'react-hot-toast';
 import { useTheme } from '../context/ThemeContext';
 import { getTheme } from '../utils/theme';
+import { cleanDisplayName } from '../utils/cleanName';
 
 const rankColors = [
   { bg: 'linear-gradient(135deg,#f59e0b,#ef4444)', glow: 'rgba(245,158,11,0.4)' },
@@ -66,8 +67,8 @@ const Authors = () => {
     [...authors].sort((a, b) => {
       const cA = a.total_papers ?? a.paper_count ?? a.count ?? 0;
       const cB = b.total_papers ?? b.paper_count ?? b.count ?? 0;
-      const nA = a.author_name ?? a.name ?? a.author ?? '';
-      const nB = b.author_name ?? b.name ?? b.author ?? '';
+      const nA = cleanDisplayName(a.author_name ?? a.name ?? a.author ?? '');
+      const nB = cleanDisplayName(b.author_name ?? b.name ?? b.author ?? '');
       const dA = new Date(a.created_at || 0).getTime();
       const dB = new Date(b.created_at || 0).getTime();
       if (sortBy === 'papers') return cB - cA;
@@ -190,7 +191,7 @@ const Authors = () => {
           {[
             ['Visible Authors', sortedAuthors.length, '#06b6d4'],
             ['Most Papers', maxPapers, '#10b981'],
-            ['Selected', selectedAuthor ? (selectedAuthor.author_name ?? selectedAuthor.name ?? selectedAuthor.author ?? 'Unknown') : '—', '#a855f7'],
+            ['Selected', selectedAuthor ? cleanDisplayName(selectedAuthor.author_name ?? selectedAuthor.name ?? selectedAuthor.author ?? 'Unknown') : '—', '#a855f7'],
           ].map(([label, value, color]) => (
             <div key={label} style={{ ...cardStyle, padding: '1rem 1.1rem' }}>
               <div style={{ fontSize: '0.72rem', color: t.textMuted, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em' }}>{label}</div>
@@ -226,7 +227,7 @@ const Authors = () => {
 
               {sortedAuthors.map((author, index) => {
                 const paperCount = author.total_papers ?? author.paper_count ?? author.count ?? 0;
-                const name = author.author_name ?? author.name ?? author.author ?? 'Unknown';
+                const name = cleanDisplayName(author.author_name ?? author.name ?? author.author ?? 'Unknown');
                 const barWidth = Math.max(4, (paperCount / maxPapers) * 100);
                 const rc = rankColors[index] || null;
                 const active = author.author_id === selectedAuthorId;
@@ -296,7 +297,7 @@ const Authors = () => {
               ) : (
                 <>
                   <div style={{ marginBottom: '1rem' }}>
-                    <div style={{ color: t.textPrimary, fontSize: '1.05rem', fontWeight: 800 }}>{authorInsights.author.author_name}</div>
+                    <div style={{ color: t.textPrimary, fontSize: '1.05rem', fontWeight: 800 }}>{cleanDisplayName(authorInsights.author.author_name)}</div>
                     <div style={{ marginTop: '0.3rem', color: t.textMuted, fontSize: '0.78rem' }}>
                       {authorInsights.mysql.paper_count} MySQL papers • {authorInsights.mongodb.total_citations || 0} citations • {authorInsights.neo4j.coauthors?.length || 0} co-authors
                     </div>
@@ -333,7 +334,7 @@ const Authors = () => {
                     <div style={{ display: 'grid', gap: '0.55rem' }}>
                       {(authorInsights.neo4j.coauthors || []).slice(0, 4).map(item => (
                         <button key={item.name} onClick={() => navigate('/graph')} style={{ width: '100%', textAlign: 'left', padding: '0.72rem 0.8rem', background: t.inputBg, border: `1px solid ${t.inputBorder}`, borderRadius: 12, cursor: 'pointer' }}>
-                          <div style={{ color: t.textPrimary, fontWeight: 700, fontSize: '0.83rem' }}>{item.name}</div>
+                          <div style={{ color: t.textPrimary, fontWeight: 700, fontSize: '0.83rem' }}>{cleanDisplayName(item.name)}</div>
                           <div style={{ color: t.textMuted, fontSize: '0.75rem' }}>{item.shared_papers} shared papers</div>
                         </button>
                       ))}

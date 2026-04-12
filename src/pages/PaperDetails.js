@@ -5,6 +5,7 @@ import { paperApi } from '../api/authApi';
 import { FaCalendar, FaUser, FaNewspaper, FaLink, FaArrowLeft, FaQuoteRight, FaTag, FaCheckCircle, FaVirus } from 'react-icons/fa';
 import { useTheme } from '../context/ThemeContext';
 import { getTheme } from '../utils/theme';
+import { cleanDisplayName } from '../utils/cleanName';
 const PaperDetails = () => {
   const {
     id
@@ -285,7 +286,7 @@ const PaperDetails = () => {
                 background: t.accentBg,
                 color: t.accentText,
                 border: '1px solid ' + t.accentBorder
-              }}>{a}</span>)}
+              }}>{cleanDisplayName(a)}</span>)}
                 </div>
               </div>}
 
